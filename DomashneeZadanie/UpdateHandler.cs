@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -101,23 +102,32 @@ namespace DomashneeZadanie
 
                 string input = messageText.Substring("/complete".Length).Trim();
 
-                if (!int.TryParse(input, out int index))
-                {
-                    botClient.SendMessage(chat, "Введите номер задачи, например: /complete 2");
-                    return;
-                }
+                //if (!Guid.TryParse(input, out Guid index))
+                //{
+                //    botClient.SendMessage(chat, "Введите номер задачи, например: /complete 2");
+                //    return;
+                //}
 
                 var activeTasks = _todoService.GetActiveByUserId(user.UserId);
 
-                if (index < 1 || index > activeTasks.Count)
-                {
-                    botClient.SendMessage(chat, $"Некорректный номер задачи. Введите от 1 до {activeTasks.Count}.");
-                    return;
-                }
+                //if (index < 1 || index > activeTasks.Count)
+                //{
+                //    botClient.SendMessage(chat, $"Некорректный номер задачи. Введите от 1 до {activeTasks.Count}.");
+                //    return;
+                //}
+                Guid taskId = Guid.Parse(input);
 
-                var taskToComplete = activeTasks[index - 1];
-                _todoService.MarkCompleted(taskToComplete.Id);
-                botClient.SendMessage(chat, $"Задача '{taskToComplete.Name}' помечена как выполненная.");
+                foreach (var task in activeTasks)
+                {
+                    if (task.Id == taskId)
+                    {
+                        _todoService.MarkCompleted(task.Id);
+                        botClient.SendMessage(update.Message.Chat, $"Задача \"{task.Name}\" помечена исполненной.");
+                    }
+                }
+                //var taskToComplete = activeTasks[index];
+                //_todoService.MarkCompleted(taskToComplete.Id);
+                //botClient.SendMessage(chat, $"Задача '{taskToComplete.Name}' помечена как выполненная.");
                 return;
             }
             switch (messageText)
@@ -157,16 +167,17 @@ namespace DomashneeZadanie
                     break;
 
                 case "/info":
-                    var infoUser = _userService.GetUser(telegramUserId);
-                    if (infoUser != null)
-                    {
-                        string info = $"Пользователь: {infoUser.TelegramUserName}\nID: {infoUser.UserId}\nЗарегистрирован: {infoUser.RegisteredAt:dd.MM.yyyy HH:mm}";
-                        botClient.SendMessage(chat, info);
-                    }
-                    else
-                    {
-                        botClient.SendMessage(chat, "Вы не зарегистрированы.");
-                    }
+                    //var infoUser = _userService.GetUser(telegramUserId);
+                    //if (infoUser != null)
+                    //{
+                        string info = $"Версия программы 0.06 , дата создания 20.02.2025";
+                    //string info = $"Пользователь: {infoUser.TelegramUserName}\nID: {infoUser.UserId}\nЗарегистрирован: {infoUser.RegisteredAt:dd.MM.yyyy HH:mm}";
+                    botClient.SendMessage(chat, info);
+                    //}
+                    //else
+                    //{
+                    //    botClient.SendMessage(chat, "Вы не зарегистрированы.");
+                    //}
                     break;
 
                 case "/showall":
