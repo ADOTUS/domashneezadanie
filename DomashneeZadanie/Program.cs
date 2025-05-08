@@ -25,7 +25,7 @@ namespace DomashneZadanie
             }
             catch (ExitRequestedException)
             {
-                Console.WriteLine("Выходы из приложения по команде /exit");
+                Console.WriteLine("Выход из приложения по команде /exit");
             }
 
         }
