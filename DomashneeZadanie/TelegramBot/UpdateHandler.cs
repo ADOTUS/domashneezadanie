@@ -270,7 +270,7 @@ namespace DomashneeZadanie.TelegramBot
         public void SwHelp(ITelegramBotClient botClient, Update update)
         {
             var chat = update.Message.Chat;
-            botClient.SendMessage(chat, "Доступные команды:\n/start\n/add [название]\n/complete\n/show\n/showall\n/remove [id]\n/info\n/help");
+            botClient.SendMessage(chat, "Доступные команды:\n/start\n/add\n/complete\n/remove\n/show\n/showall\n/report\n/find\n/info\n/help");
         }
         public void SwInfo(ITelegramBotClient botClient, Update update)
         {
