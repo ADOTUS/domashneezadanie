@@ -14,8 +14,8 @@ namespace DomashneeZadanie
         public DateTime CreatedAt { get; set; }        
         public ToDoItemState State { get; set; }     
         public DateTime? StateChangedAt { get; set; }  
-        public ToDoItem()
-        { }
+        //public ToDoItem()
+        //{ }
         public ToDoItem(ToDoUser user, string name)
         {
             Id = Guid.NewGuid();
@@ -26,10 +26,10 @@ namespace DomashneeZadanie
             StateChangedAt = null;
         }
 
-        public void MarkCompleted()
-        {
-            State = ToDoItemState.Completed;
-            StateChangedAt = DateTime.UtcNow;
-        }
+        //public void MarkCompleted()
+        //{
+        //    State = ToDoItemState.Completed;
+        //    StateChangedAt = DateTime.UtcNow;
+        //}
     }
 }

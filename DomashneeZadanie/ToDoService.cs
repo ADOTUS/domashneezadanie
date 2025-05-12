@@ -9,9 +9,9 @@ namespace DomashneeZadanie
     public class ToDoService : IToDoService
     {
         private static readonly List<ToDoItem> _tasks = new List<ToDoItem>();
-        private const int MaxTasks = 10;
-        private const int MaxNameLength = 100;
-
+        //private const int MaxTasks = 2;
+        //private const int MaxNameLength = 4;
+        
         public IReadOnlyList<ToDoItem> GetAllByUserId(Guid userId)
         {
             List<ToDoItem> result = new List<ToDoItem>();
@@ -38,7 +38,7 @@ namespace DomashneeZadanie
             return result;
         }
 
-        public ToDoItem Add(ToDoUser user, string name)
+        public ToDoItem Add(ToDoUser user, string name, int MaxTasks, int MaxNameLength)
         {
             int count = 0;
             for (int i = 0; i < _tasks.Count; i++)
@@ -51,12 +51,14 @@ namespace DomashneeZadanie
 
             if (count >= MaxTasks)
             {
-                throw new InvalidOperationException("Превышено максимальное количество задач (10).");
+                //throw new InvalidOperationException("Превышено максимальное количество задач (10).");
+                throw new TaskCountLimitException(MaxTasks);
             }
 
             if (name.Length > MaxNameLength)
             {
-                throw new ArgumentException("Имя задачи слишком длинное.");
+                //throw new ArgumentException("Имя задачи слишком длинное.");
+                throw new TaskLengthLimitException(MaxNameLength, name);
             }
 
             // Проверка на дубликаты
@@ -64,7 +66,8 @@ namespace DomashneeZadanie
             {
                 if (_tasks[i].User.UserId == user.UserId && _tasks[i].Name == name)
                 {
-                    throw new InvalidOperationException("Такая задача уже существует.");
+                    //throw new InvalidOperationException("Такая задача уже существует.");
+                    throw new DuplicateTaskException(name);
                 }
             }
 

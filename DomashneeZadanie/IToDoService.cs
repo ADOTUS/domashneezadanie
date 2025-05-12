@@ -10,7 +10,7 @@ namespace DomashneeZadanie
     {
         IReadOnlyList<ToDoItem> GetAllByUserId(Guid userId);
         IReadOnlyList<ToDoItem> GetActiveByUserId(Guid userId);
-        ToDoItem Add(ToDoUser user, string name);
+        ToDoItem Add(ToDoUser user, string name, int MaxTasks, int MaxNameLength);
         void MarkCompleted(Guid id);
         void Delete(Guid id);
     }

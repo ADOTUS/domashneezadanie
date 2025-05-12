@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -16,15 +18,68 @@ namespace DomashneeZadanie
     {
         private readonly IUserService _userService;
         private readonly IToDoService _todoService;
+        public int MaxTasks = 10;
+        public int MaxNameLength = 255;
+        public static bool sucscess = false;
 
         public UpdateHandler(IUserService userService, IToDoService todoService)
         {
             _userService = userService;
             _todoService = todoService;
         }
+        public void ParamsSetting()
+        {
+            while (!sucscess)
+            {
+                try
+
+                {
+                    CntTasksSet();
+                    LenghtTasksSet();
+                }
+                catch (TaskCountLimitException ex)
+                {
+                    Console.WriteLine($"{ex.Message}");
+                }
+            }
+        }
+        public void CntTasksSet()
+        {
+            Console.WriteLine("Введите максимальное количество задач для отслеживания:");
+            int value = ParseAndValidateInt(Console.ReadLine(), 0, 10, MaxTasks, MaxNameLength);
+            MaxTasks = value;
+            Console.WriteLine($"Вы ввели: {MaxTasks}");
+        }
+
+        public void LenghtTasksSet()
+        {
+            Console.WriteLine("Введите максимальную длину задачи:");
+            int value = ParseAndValidateInt(Console.ReadLine(), 0, 255, MaxTasks, MaxNameLength);
+            MaxNameLength = value;
+            Console.WriteLine($"Вы ввели: {MaxNameLength}");
+        }
+        public static int ParseAndValidateInt(string? str, int min, int max, int maxTasks, int maxNameLength)
+        {
+
+            if (int.TryParse(str, out int value) && value > min && value < max)
+            {
+                sucscess = true;
+                return value;
+            }
+            else
+            {
+                maxTasks = 10;
+                maxNameLength = 255;
+                sucscess = false;
+                throw new TaskCountLimitException(maxTasks, maxNameLength);
+
+            }
+        }
 
         public void HandleUpdateAsync(ITelegramBotClient botClient, Update update)
         {
+            ParamsSetting();
+
             if (update.Message == null || update.Message.From == null || string.IsNullOrWhiteSpace(update.Message.Text))
                 return;
 
@@ -33,187 +88,210 @@ namespace DomashneeZadanie
             string messageText = update.Message.Text.Trim();
             var chat = update.Message.Chat;
 
+
+
             if (messageText.StartsWith("/add"))
             {
-                var user = _userService.GetUser(telegramUserId);
-                if (user == null)
-                {
-                    botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.");
-                    return;
-                }
-
-                string name = messageText.Substring("/add".Length).Trim();
-                if (string.IsNullOrWhiteSpace(name))
-                {
-                    botClient.SendMessage(chat, "Укажите описание задачи после команды /add.");
-                    return;
-                }
-
-                try
-                {
-                    ToDoItem task = _todoService.Add(user, name);
-                    botClient.SendMessage(chat, $"Задача добавлена: {task.Name}");
-                }
-                catch (Exception ex)
-                {
-                    botClient.SendMessage(chat, $"Ошибка: {ex.Message}");
-                }
+                SwAdd(botClient, update, telegramUserId, messageText, MaxTasks, MaxNameLength);
                 return;
             }
 
             if (messageText.StartsWith("/remove"))
             {
-                var user = _userService.GetUser(telegramUserId);
-                if (user == null)
-                {
-                    botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.");
-                    return;
-                }
-
-                string input = messageText.Substring("/remove".Length).Trim();
-
-                if (!int.TryParse(input, out int index))
-                {
-                    botClient.SendMessage(chat, "Введите номер задачи, например: /remove 1");
-                    return;
-                }
-
-                var activeTasks = _todoService.GetActiveByUserId(user.UserId);
-
-                if (index < 1 || index > activeTasks.Count)
-                {
-                    botClient.SendMessage(chat, $"Некорректный номер задачи. Введите от 1 до {activeTasks.Count}.");
-                    return;
-                }
-
-                var taskToRemove = activeTasks[index - 1];
-                _todoService.Delete(taskToRemove.Id);
-                botClient.SendMessage(chat, $"Задача '{taskToRemove.Name}' удалена.");
+                SwRemove(botClient, update, telegramUserId, messageText);
                 return;
             }
+
             if (messageText.StartsWith("/complete"))
             {
-                var user = _userService.GetUser(telegramUserId);
-                if (user == null)
-                {
-                    botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.");
-                    return;
-                }
-
-                string input = messageText.Substring("/complete".Length).Trim();
-
-                //if (!Guid.TryParse(input, out Guid index))
-                //{
-                //    botClient.SendMessage(chat, "Введите номер задачи, например: /complete 2");
-                //    return;
-                //}
-
-                var activeTasks = _todoService.GetActiveByUserId(user.UserId);
-
-                //if (index < 1 || index > activeTasks.Count)
-                //{
-                //    botClient.SendMessage(chat, $"Некорректный номер задачи. Введите от 1 до {activeTasks.Count}.");
-                //    return;
-                //}
-                Guid taskId = Guid.Parse(input);
-
-                foreach (var task in activeTasks)
-                {
-                    if (task.Id == taskId)
-                    {
-                        _todoService.MarkCompleted(task.Id);
-                        botClient.SendMessage(update.Message.Chat, $"Задача \"{task.Name}\" помечена исполненной.");
-                    }
-                }
-                //var taskToComplete = activeTasks[index];
-                //_todoService.MarkCompleted(taskToComplete.Id);
-                //botClient.SendMessage(chat, $"Задача '{taskToComplete.Name}' помечена как выполненная.");
+                SwComplete(botClient, update, telegramUserId, messageText);
                 return;
             }
+
+
             switch (messageText)
             {
                 case "/start":
                     {
-                        ToDoUser user = _userService.RegisterUser(telegramUserId, telegramUserName);
-                        botClient.SendMessage(chat, $"Привет, {user.TelegramUserName}!\nВы зарегистрированы.\nID: {user.UserId}\nДата: {user.RegisteredAt:dd.MM.yyyy HH:mm}");
+                        SwStart(botClient, update, telegramUserId, telegramUserName);
                         break;
                     }
                 case "/show":
                     {
-                        var user = _userService.GetUser(telegramUserId);
-                        if (user == null)
-                        {
-                            botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.");
-                            return;
-                        }
-
-                        var tasks = _todoService.GetActiveByUserId(user.UserId);
-                        if (tasks.Count == 0)
-                        {
-                            botClient.SendMessage(chat, "Активных задач нет.");
-                            return;
-                        }
-
-                        for (int i = 0; i < tasks.Count; i++)
-                        {
-                            var task = tasks[i];
-                            string msg = $"{i + 1}. {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - {task.Id}";
-                            botClient.SendMessage(chat, msg);
-                        }
+                        SwShow(botClient, update, telegramUserId);
                         break;
                     }
                 case "/help":
-                    botClient.SendMessage(chat, "Доступные команды:\n/start\n/add [название]\n/complete\n/show\n/showall\n/remove [id]\n/info\n/help\n/exit");
-                    break;
-
+                    {
+                        SwHelp(botClient, update);
+                        break;
+                    }
                 case "/info":
-                    //var infoUser = _userService.GetUser(telegramUserId);
-                    //if (infoUser != null)
-                    //{
-                        string info = $"Версия программы 0.06 , дата создания 20.02.2025";
-                    //string info = $"Пользователь: {infoUser.TelegramUserName}\nID: {infoUser.UserId}\nЗарегистрирован: {infoUser.RegisteredAt:dd.MM.yyyy HH:mm}";
-                    botClient.SendMessage(chat, info);
-                    //}
-                    //else
-                    //{
-                    //    botClient.SendMessage(chat, "Вы не зарегистрированы.");
-                    //}
-                    break;
+                    {
+                        SwInfo(botClient, update);
+                        break;
+                    }
 
                 case "/showall":
                     {
-                        ToDoUser? showUser = _userService.GetUser(telegramUserId);
-                        if (showUser == null)
-                        {
-                            botClient.SendMessage(update.Message.Chat, "Вы не зарегистрированы. Напишите /start.");
-                            return;
-                        }
-
-                        var allTasks = _todoService.GetAllByUserId(showUser.UserId);
-                        if (allTasks.Count == 0)
-                        {
-                            botClient.SendMessage(update.Message.Chat, "Задачи не найдены.");
-                            return;
-                        }
-
-                        for (int i = 0; i < allTasks.Count; i++)
-                        {
-                            ToDoItem task = allTasks[i];
-                            string message = $"({task.State}) {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - {task.Id}";
-                            botClient.SendMessage(update.Message.Chat, message);
-                        }
-
+                        SwShowAll(botClient, update, telegramUserId);
                         break;
                     }
-                case "/exit":
-                    botClient.SendMessage(chat, "До свидания!");
-                    throw new ExitRequestedException();
 
                 default:
                     botClient.SendMessage(chat, "Неизвестная команда. Напишите /help.");
                     break;
 
             }
+        }
+        public void SwStart(ITelegramBotClient botClient, Update update, long telegramUserId, string telegramUserName)
+        {
+            var chat = update.Message.Chat;
+            ToDoUser user = _userService.RegisterUser(telegramUserId, telegramUserName);
+            botClient.SendMessage(chat, $"Привет, {user.TelegramUserName}!\nВы зарегистрированы.\nID: {user.UserId}\nДата: {user.RegisteredAt:dd.MM.yyyy HH:mm}");
+        }
+        public void SwShow(ITelegramBotClient botClient, Update update, long telegramUserId)
+        {
+            var chat = update.Message.Chat;
+            var user = _userService.GetUser(telegramUserId);
+            if (user == null)
+            {
+                botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.");
+                return;
+            }
+
+            var tasks = _todoService.GetActiveByUserId(user.UserId);
+            if (tasks.Count == 0)
+            {
+                botClient.SendMessage(chat, "Активных задач нет.");
+                return;
+            }
+
+            for (int i = 0; i < tasks.Count; i++)
+            {
+                var task = tasks[i];
+                string msg = $"{i + 1}. {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - {task.Id}";
+                botClient.SendMessage(chat, msg);
+            }
+        }
+        public void SwShowAll(ITelegramBotClient botClient, Update update, long telegramUserId)
+        {
+            var chat = update.Message.Chat;
+            ToDoUser? showUser = _userService.GetUser(telegramUserId);
+            if (showUser == null)
+            {
+                botClient.SendMessage(update.Message.Chat, "Вы не зарегистрированы. Напишите /start.");
+                return;
+            }
+
+            var allTasks = _todoService.GetAllByUserId(showUser.UserId);
+            if (allTasks.Count == 0)
+            {
+                botClient.SendMessage(update.Message.Chat, "Задачи не найдены.");
+                return;
+            }
+
+            for (int i = 0; i < allTasks.Count; i++)
+            {
+                ToDoItem task = allTasks[i];
+                string message = $"({task.State}) {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - {task.Id}";
+                botClient.SendMessage(update.Message.Chat, message);
+            }
+
+        }
+        public void SwHelp (ITelegramBotClient botClient, Update update)
+        {
+            var chat = update.Message.Chat;
+            botClient.SendMessage(chat, "Доступные команды:\n/start\n/add [название]\n/complete\n/show\n/showall\n/remove [id]\n/info\n/help"); 
+        }
+        public void SwInfo(ITelegramBotClient botClient, Update update)
+        {
+            var chat = update.Message.Chat;
+            botClient.SendMessage(chat, "Версия программы 0.07 , дата создания 20.02.2025");
+        }
+        public void SwAdd(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText, int MaxTasks, int MaxNameLength)
+        {
+            var chat = update.Message.Chat;
+            var user = _userService.GetUser(telegramUserId);
+            if (user == null)
+            {
+                botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.");
+                return;
+            }
+
+            string name = messageText.Substring("/add".Length).Trim();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                botClient.SendMessage(chat, "Укажите описание задачи после команды /add.");
+                return;
+            }
+
+            try
+            {
+                ToDoItem task = _todoService.Add(user, name, MaxTasks, MaxNameLength);
+                botClient.SendMessage(chat, $"Задача добавлена: {task.Name}");
+            }
+            catch (Exception ex)
+            {
+                botClient.SendMessage(chat, $"Ошибка: {ex.Message}");
+            }
+            return;
+        }
+        public void SwRemove(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText)
+        {
+            var chat = update.Message.Chat;
+            var user = _userService.GetUser(telegramUserId);
+            if (user == null)
+            {
+                botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.");
+                return;
+            }
+
+            string input = messageText.Substring("/remove".Length).Trim();
+
+            if (!int.TryParse(input, out int index))
+            {
+                botClient.SendMessage(chat, "Введите номер задачи, например: /remove 1");
+                return;
+            }
+
+            var activeTasks = _todoService.GetActiveByUserId(user.UserId);
+
+            if (index < 1 || index > activeTasks.Count)
+            {
+                botClient.SendMessage(chat, $"Некорректный номер задачи. Введите от 1 до {activeTasks.Count}.");
+                return;
+            }
+
+            var taskToRemove = activeTasks[index - 1];
+            _todoService.Delete(taskToRemove.Id);
+            botClient.SendMessage(chat, $"Задача '{taskToRemove.Name}' удалена.");
+            return;
+        }
+        public void SwComplete(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText)
+        {
+            var chat = update.Message.Chat;
+            var user = _userService.GetUser(telegramUserId);
+            if (user == null)
+            {
+                botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.");
+                return;
+            }
+
+            string input = messageText.Substring("/complete".Length).Trim();
+            var activeTasks = _todoService.GetActiveByUserId(user.UserId);
+
+            Guid taskId = Guid.Parse(input);
+
+            foreach (var task in activeTasks)
+            {
+                if (task.Id == taskId)
+                {
+                    _todoService.MarkCompleted(task.Id);
+                    botClient.SendMessage(update.Message.Chat, $"Задача \"{task.Name}\" помечена исполненной.");
+                }
+            }
+            return;
         }
     }
 }
