@@ -7,11 +7,14 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using DomashneeZadanie.Core.Entities;
+using DomashneeZadanie.Core.Exceptions;
+using DomashneeZadanie.Core.Services;
 using DomashneZadanie;
 using Otus.ToDoList.ConsoleBot;
 using Otus.ToDoList.ConsoleBot.Types;
 
-namespace DomashneeZadanie
+namespace DomashneeZadanie.TelegramBot
 {
 
     public class UpdateHandler : IUpdateHandler
@@ -21,11 +24,18 @@ namespace DomashneeZadanie
         public int MaxTasks = 10;
         public int MaxNameLength = 255;
         public static bool sucscess = false;
+        private readonly IToDoReportService _reportService;
 
-        public UpdateHandler(IUserService userService, IToDoService todoService)
+        //public UpdateHandler(IUserService userService, IToDoService todoService)
+        //{
+        //    _userService = userService;
+        //    _todoService = todoService;
+        //}
+        public UpdateHandler(IUserService userService, IToDoService todoService, IToDoReportService reportService)
         {
             _userService = userService;
             _todoService = todoService;
+            _reportService = reportService;
         }
         public void ParamsSetting()
         {
@@ -107,7 +117,11 @@ namespace DomashneeZadanie
                 SwComplete(botClient, update, telegramUserId, messageText);
                 return;
             }
-
+            if (messageText.StartsWith("/find"))
+            {
+                SwFind(botClient, update, telegramUserId, messageText);
+                return;
+            }
 
             switch (messageText)
             {
@@ -137,11 +151,65 @@ namespace DomashneeZadanie
                         SwShowAll(botClient, update, telegramUserId);
                         break;
                     }
+                case "/report":
+                    {
+                        SwReport(botClient, update, telegramUserId);
+                        break;
+                    }
 
                 default:
                     botClient.SendMessage(chat, "Неизвестная команда. Напишите /help.");
                     break;
 
+            }
+        }
+        public void SwReport(ITelegramBotClient botClient, Update update, long telegramUserId)
+        {
+            var chat = update.Message.Chat;
+            var user = _userService.GetUser(telegramUserId);
+            if (user == null)
+            {
+                botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.");
+                return;
+            }
+
+            var stats = _reportService.GetUserStats(user.UserId);
+
+            string message = $"Статистика по задачам на {stats.generatedAt:dd.MM.yyyy HH:mm:ss}.\n" +
+                             $"Всего: {stats.total}; Завершенных: {stats.completed}; Активных: {stats.active};";
+
+            botClient.SendMessage(chat, message);
+        }
+        public void SwFind(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText)
+        {
+            var chat = update.Message.Chat;
+            var user = _userService.GetUser(telegramUserId);
+            if (user == null)
+            {
+                botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.");
+                return;
+            }
+
+            string prefix = messageText.Substring("/find".Length).Trim();
+
+            if (string.IsNullOrWhiteSpace(prefix))
+            {
+                botClient.SendMessage(chat, "Укажите часть имени задачи после /find.");
+                return;
+            }
+
+            var found = _todoService.Find(user, prefix);
+            if (found.Count == 0)
+            {
+                botClient.SendMessage(chat, $"Задачи, начинающиеся на '{prefix}', не найдены.");
+                return;
+            }
+
+            for (int i = 0; i < found.Count; i++)
+            {
+                var task = found[i];
+                string msg = $"{i + 1}. {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - {task.Id}";
+                botClient.SendMessage(chat, msg);
             }
         }
         public void SwStart(ITelegramBotClient botClient, Update update, long telegramUserId, string telegramUserName)
@@ -199,10 +267,10 @@ namespace DomashneeZadanie
             }
 
         }
-        public void SwHelp (ITelegramBotClient botClient, Update update)
+        public void SwHelp(ITelegramBotClient botClient, Update update)
         {
             var chat = update.Message.Chat;
-            botClient.SendMessage(chat, "Доступные команды:\n/start\n/add [название]\n/complete\n/show\n/showall\n/remove [id]\n/info\n/help"); 
+            botClient.SendMessage(chat, "Доступные команды:\n/start\n/add [название]\n/complete\n/show\n/showall\n/remove [id]\n/info\n/help");
         }
         public void SwInfo(ITelegramBotClient botClient, Update update)
         {
