@@ -16,6 +16,10 @@ namespace DomashneZadanie
     {
         public static void Main(string[] args)
         {
+            int maxTasks = SetGlobalVar("Введите максимальное количество задач (1–10):", 1, 10);
+            int maxNameLength = SetGlobalVar("Введите максимальную длину задачи (1–255):", 1, 255);
+
+
             var userRepository = new InMemoryUserRepository();
             var userService = new UserService(userRepository);
 
@@ -25,9 +29,35 @@ namespace DomashneZadanie
             var reportService = new ToDoReportService(todoRepository);
 
             var botClient = new ConsoleBotClient();
-            var handler = new UpdateHandler(userService, todoService , reportService);
+            var handler = new UpdateHandler(userService, todoService , reportService, maxTasks, maxNameLength);
 
             botClient.StartReceiving(handler);
+        }
+        private static int SetGlobalVar(string msg, int min, int max)
+        {
+            while (true)
+            {
+                Console.WriteLine(msg);
+                string? input = Console.ReadLine();
+                try
+                {
+                    int value = ParseAndValidateInt(input, min, max);
+                    Console.WriteLine($"Вы ввели: {value}");
+                    return value;
+                }
+                catch (ArgumentException ex)
+                {
+                    Console.WriteLine($"Ошибка: {ex.Message}");
+                }
+            }
+        }
+        private static int ParseAndValidateInt(string? input, int min, int max)
+        {
+            if (int.TryParse(input, out int value) && value >= min && value <= max)
+            {
+                return value;
+            }
+            throw new ArgumentException($"Введите целое число от {min} до {max}.");
         }
     }
 }

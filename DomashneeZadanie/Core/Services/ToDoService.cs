@@ -30,27 +30,23 @@ namespace DomashneeZadanie.Core.Services
 
         public ToDoItem Add(ToDoUser user, string name, int maxTasks, int maxNameLength)
         {
-            // Проверка: превышен лимит задач
             int currentTaskCount = _repository.CountActive(user.UserId);
             if (currentTaskCount >= maxTasks)
             {
                 throw new TaskCountLimitException(maxTasks);
             }
 
-            // Проверка: длина задачи превышена
             if (name.Length > maxNameLength)
             {
                 throw new TaskLengthLimitException(maxNameLength, name);
             }
 
-            // Проверка: дубликат
             bool exists = _repository.ExistsByName(user.UserId, name);
             if (exists)
             {
                 throw new DuplicateTaskException(name);
             }
 
-            // Создаем и сохраняем новую задачу
             ToDoItem newItem = new ToDoItem(user, name);
             _repository.Add(newItem);
             return newItem;
