@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DomashneeZadanie
+namespace DomashneeZadanie.Core.Exceptions
 {
     class TaskCountLimitException : Exception
     {
@@ -12,7 +12,5 @@ namespace DomashneeZadanie
         { }
         public TaskCountLimitException(int cntTasks) : base($"Максимальное количество добавяемых задач - {cntTasks}")
         { }
-        //public TaskCountLimitException(int cntTasks, string addTask) : base($"Максимальное количество добавленных задач - {cntTasks}, элемент {addTask} в список не добавлен")
-        //{ }
     }
 }

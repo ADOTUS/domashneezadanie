@@ -1,4 +1,6 @@
-namespace DomashneeZadanie;
+using DomashneeZadanie.Core.Entities;
+
+namespace DomashneeZadanie.Core.Services;
 
 public interface IUserService
 {
