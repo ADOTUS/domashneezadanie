@@ -246,7 +246,7 @@ namespace DomashneeZadanie.TelegramBot
 
             try
             {
-                ToDoItem task = _todoService.Add(user, name, MaxTasks, MaxNameLength);
+                ToDoItem task = _todoService.Add(user, name);
                 botClient.SendMessage(chat, $"Задача добавлена: {task.Name}");
             }
             catch (Exception ex)
