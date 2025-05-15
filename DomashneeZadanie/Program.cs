@@ -24,7 +24,6 @@ namespace DomashneZadanie
             var userService = new UserService(userRepository);
 
             var todoRepository = new InMemoryToDoRepository();
-            //var todoService = new ToDoService(todoRepository);
             var todoService = new ToDoService(todoRepository, maxTasks, maxNameLength);
 
             var reportService = new ToDoReportService(todoRepository);
