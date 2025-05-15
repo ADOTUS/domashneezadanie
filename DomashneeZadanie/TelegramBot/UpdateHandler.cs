@@ -21,74 +21,24 @@ namespace DomashneeZadanie.TelegramBot
     {
         private readonly IUserService _userService;
         private readonly IToDoService _todoService;
-        public int MaxTasks = 10;
-        public int MaxNameLength = 255;
         public static bool sucscess = false;
         private readonly IToDoReportService _reportService;
 
-        //public UpdateHandler(IUserService userService, IToDoService todoService)
-        //{
-        //    _userService = userService;
-        //    _todoService = todoService;
-        //}
-        public UpdateHandler(IUserService userService, IToDoService todoService, IToDoReportService reportService)
+        private readonly int _maxTasks;
+        private readonly int _maxNameLength;
+
+        public UpdateHandler(IUserService userService, IToDoService todoService, IToDoReportService reportService, int MaxTasks, int MaxNameLength)
         {
             _userService = userService;
             _todoService = todoService;
             _reportService = reportService;
-        }
-        public void ParamsSetting()
-        {
-            while (!sucscess)
-            {
-                try
-
-                {
-                    CntTasksSet();
-                    LenghtTasksSet();
-                }
-                catch (TaskCountLimitException ex)
-                {
-                    Console.WriteLine($"{ex.Message}");
-                }
-            }
-        }
-        public void CntTasksSet()
-        {
-            Console.WriteLine("Введите максимальное количество задач для отслеживания:");
-            int value = ParseAndValidateInt(Console.ReadLine(), 0, 10, MaxTasks, MaxNameLength);
-            MaxTasks = value;
-            Console.WriteLine($"Вы ввели: {MaxTasks}");
+            _maxTasks = MaxTasks;
+            _maxNameLength = MaxNameLength;
         }
 
-        public void LenghtTasksSet()
-        {
-            Console.WriteLine("Введите максимальную длину задачи:");
-            int value = ParseAndValidateInt(Console.ReadLine(), 0, 255, MaxTasks, MaxNameLength);
-            MaxNameLength = value;
-            Console.WriteLine($"Вы ввели: {MaxNameLength}");
-        }
-        public static int ParseAndValidateInt(string? str, int min, int max, int maxTasks, int maxNameLength)
-        {
-
-            if (int.TryParse(str, out int value) && value > min && value < max)
-            {
-                sucscess = true;
-                return value;
-            }
-            else
-            {
-                maxTasks = 10;
-                maxNameLength = 255;
-                sucscess = false;
-                throw new TaskCountLimitException(maxTasks, maxNameLength);
-
-            }
-        }
 
         public void HandleUpdateAsync(ITelegramBotClient botClient, Update update)
         {
-            ParamsSetting();
 
             if (update.Message == null || update.Message.From == null || string.IsNullOrWhiteSpace(update.Message.Text))
                 return;
@@ -102,7 +52,7 @@ namespace DomashneeZadanie.TelegramBot
 
             if (messageText.StartsWith("/add"))
             {
-                SwAdd(botClient, update, telegramUserId, messageText, MaxTasks, MaxNameLength);
+                SwAdd(botClient, update, telegramUserId, messageText, _maxTasks, _maxNameLength);
                 return;
             }
 
@@ -163,7 +113,7 @@ namespace DomashneeZadanie.TelegramBot
 
             }
         }
-        public void SwReport(ITelegramBotClient botClient, Update update, long telegramUserId)
+        private void SwReport(ITelegramBotClient botClient, Update update, long telegramUserId)
         {
             var chat = update.Message.Chat;
             var user = _userService.GetUser(telegramUserId);
@@ -180,7 +130,7 @@ namespace DomashneeZadanie.TelegramBot
 
             botClient.SendMessage(chat, message);
         }
-        public void SwFind(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText)
+        private void SwFind(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText)
         {
             var chat = update.Message.Chat;
             var user = _userService.GetUser(telegramUserId);
@@ -212,13 +162,13 @@ namespace DomashneeZadanie.TelegramBot
                 botClient.SendMessage(chat, msg);
             }
         }
-        public void SwStart(ITelegramBotClient botClient, Update update, long telegramUserId, string telegramUserName)
+        private void SwStart(ITelegramBotClient botClient, Update update, long telegramUserId, string telegramUserName)
         {
             var chat = update.Message.Chat;
             ToDoUser user = _userService.RegisterUser(telegramUserId, telegramUserName);
             botClient.SendMessage(chat, $"Привет, {user.TelegramUserName}!\nВы зарегистрированы.\nID: {user.UserId}\nДата: {user.RegisteredAt:dd.MM.yyyy HH:mm}");
         }
-        public void SwShow(ITelegramBotClient botClient, Update update, long telegramUserId)
+        private void SwShow(ITelegramBotClient botClient, Update update, long telegramUserId)
         {
             var chat = update.Message.Chat;
             var user = _userService.GetUser(telegramUserId);
@@ -242,7 +192,7 @@ namespace DomashneeZadanie.TelegramBot
                 botClient.SendMessage(chat, msg);
             }
         }
-        public void SwShowAll(ITelegramBotClient botClient, Update update, long telegramUserId)
+        private void SwShowAll(ITelegramBotClient botClient, Update update, long telegramUserId)
         {
             var chat = update.Message.Chat;
             ToDoUser? showUser = _userService.GetUser(telegramUserId);
@@ -267,17 +217,17 @@ namespace DomashneeZadanie.TelegramBot
             }
 
         }
-        public void SwHelp(ITelegramBotClient botClient, Update update)
+        private void SwHelp(ITelegramBotClient botClient, Update update)
         {
             var chat = update.Message.Chat;
             botClient.SendMessage(chat, "Доступные команды:\n/start\n/add\n/complete\n/remove\n/show\n/showall\n/report\n/find\n/info\n/help");
         }
-        public void SwInfo(ITelegramBotClient botClient, Update update)
+        private void SwInfo(ITelegramBotClient botClient, Update update)
         {
             var chat = update.Message.Chat;
             botClient.SendMessage(chat, "Версия программы 0.07 , дата создания 20.02.2025");
         }
-        public void SwAdd(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText, int MaxTasks, int MaxNameLength)
+        private void SwAdd(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText, int MaxTasks, int MaxNameLength)
         {
             var chat = update.Message.Chat;
             var user = _userService.GetUser(telegramUserId);
@@ -296,7 +246,7 @@ namespace DomashneeZadanie.TelegramBot
 
             try
             {
-                ToDoItem task = _todoService.Add(user, name, MaxTasks, MaxNameLength);
+                ToDoItem task = _todoService.Add(user, name);
                 botClient.SendMessage(chat, $"Задача добавлена: {task.Name}");
             }
             catch (Exception ex)
@@ -305,7 +255,7 @@ namespace DomashneeZadanie.TelegramBot
             }
             return;
         }
-        public void SwRemove(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText)
+        private void SwRemove(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText)
         {
             var chat = update.Message.Chat;
             var user = _userService.GetUser(telegramUserId);
@@ -336,7 +286,7 @@ namespace DomashneeZadanie.TelegramBot
             botClient.SendMessage(chat, $"Задача '{taskToRemove.Name}' удалена.");
             return;
         }
-        public void SwComplete(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText)
+        private void SwComplete(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText)
         {
             var chat = update.Message.Chat;
             var user = _userService.GetUser(telegramUserId);

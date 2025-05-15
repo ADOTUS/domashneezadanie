@@ -6,38 +6,6 @@ namespace DomashneeZadanie.Core.Services;
 
 public class UserService : IUserService
 {
-    //private readonly List<ToDoUser> _users = new();
-    //public ToDoUser RegisterUser(long telegramUserId, string telegramUserName)
-    //{
-    //    foreach (var user in _users)
-    //    {
-    //        if (user.TelegramUserId == telegramUserId)
-    //        {
-    //            return user;
-    //        }
-    //    }
-    //    var newUser = new ToDoUser
-    //    {
-    //        UserId = Guid.NewGuid(),
-    //        TelegramUserId = telegramUserId,
-    //        TelegramUserName = telegramUserName,
-    //        RegisteredAt = DateTime.UtcNow
-    //    };
-    //    _users.Add(newUser);
-    //    return newUser;
-    //}
-    //public ToDoUser? GetUser(long telegramUserId)
-    //{
-    //    foreach (var user in _users)
-    //    {
-    //        if (user.TelegramUserId == telegramUserId)
-    //        {
-    //            return user;
-    //        }
-    //    }
-
-    //    return null;
-    //}
     private readonly IUserRepository _userRepository;
 
     public UserService(IUserRepository userRepository)
@@ -66,7 +34,4 @@ public class UserService : IUserService
     {
         return _userRepository.GetUserByTelegramUserId(telegramUserId);
     }
-
-
-
 }

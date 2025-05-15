@@ -12,10 +12,14 @@ namespace DomashneeZadanie.Core.Services
     public class ToDoService : IToDoService
     {
         private readonly IToDoRepository _repository;
+        private readonly int _maxTasks;
+        private readonly int _maxNameLength;
 
-        public ToDoService(IToDoRepository repository)
+        public ToDoService(IToDoRepository repository, int maxTasks, int maxNameLength)
         {
             _repository = repository;
+            _maxTasks = maxTasks;
+            _maxNameLength = maxNameLength;
         }
 
         public IReadOnlyList<ToDoItem> GetAllByUserId(Guid userId)
@@ -28,29 +32,25 @@ namespace DomashneeZadanie.Core.Services
             return _repository.GetActiveByUserId(userId);
         }
 
-        public ToDoItem Add(ToDoUser user, string name, int maxTasks, int maxNameLength)
+        public ToDoItem Add(ToDoUser user, string name)
         {
-            // Проверка: превышен лимит задач
             int currentTaskCount = _repository.CountActive(user.UserId);
-            if (currentTaskCount >= maxTasks)
+            if (currentTaskCount >= _maxTasks)
             {
-                throw new TaskCountLimitException(maxTasks);
+                throw new ArgumentException($"Превышено количество задач. Максимум — {_maxTasks}.");
             }
 
-            // Проверка: длина задачи превышена
-            if (name.Length > maxNameLength)
+            if (name.Length > _maxNameLength)
             {
-                throw new TaskLengthLimitException(maxNameLength, name);
+                throw new ArgumentException($"Длина задачи превышает допустимую. Максимум — {_maxNameLength} символов.");
             }
 
-            // Проверка: дубликат
             bool exists = _repository.ExistsByName(user.UserId, name);
             if (exists)
             {
                 throw new DuplicateTaskException(name);
             }
 
-            // Создаем и сохраняем новую задачу
             ToDoItem newItem = new ToDoItem(user, name);
             _repository.Add(newItem);
             return newItem;

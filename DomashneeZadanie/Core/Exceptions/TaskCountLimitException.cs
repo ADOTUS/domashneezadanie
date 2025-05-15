@@ -8,8 +8,6 @@ namespace DomashneeZadanie.Core.Exceptions
 {
     class TaskCountLimitException : Exception
     {
-        public TaskCountLimitException(int cntTasks, int lengthTask) : base($"Максимальное количество добавяемых задач - {cntTasks}. Максимальная длина задачи - {lengthTask}")
-        { }
         public TaskCountLimitException(int cntTasks) : base($"Максимальное количество добавяемых задач - {cntTasks}")
         { }
     }
