@@ -14,7 +14,7 @@ namespace DomashneZadanie
 {
     internal static class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             int maxTasks = SetGlobalVar("Введите максимальное количество задач (1–10):", 1, 10);
             int maxNameLength = SetGlobalVar("Введите максимальную длину задачи (1–255):", 1, 255);
@@ -31,7 +31,36 @@ namespace DomashneZadanie
             var botClient = new ConsoleBotClient();
             var handler = new UpdateHandler(userService, todoService , reportService, maxTasks, maxNameLength);
 
-            botClient.StartReceiving(handler);
+            using var cts = new CancellationTokenSource();
+
+            handler.OnHandleUpdateStarted += HandleStarted;
+            handler.OnHandleUpdateCompleted += HandleCompleted;
+
+            try
+            {
+                Console.WriteLine("Нажми Ctrl+C для выхода");
+                botClient.StartReceiving(handler, cts.Token);
+                await Task.Delay(-1, cts.Token); 
+            }
+            finally
+            {
+                //понадобится в следующем дз, 9. В настоящий момент до сюда не дойти.
+                Console.WriteLine("Подписки на события удалены");
+                handler.OnHandleUpdateStarted -= HandleStarted;
+                handler.OnHandleUpdateCompleted -= HandleCompleted;
+
+            }
+
+            void HandleStarted(string message)
+            {
+                Console.WriteLine($"Началась обработка сообщения '{message}'");
+            }
+
+            void HandleCompleted(string message)
+            {
+                Console.WriteLine($"Закончилась обработка сообщения '{message}'");
+            }
+
         }
         private static int SetGlobalVar(string msg, int min, int max)
         {

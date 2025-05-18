@@ -8,6 +8,6 @@ namespace DomashneeZadanie.Core.Services
 {
     public interface IToDoReportService
     {
-        (int total, int completed, int active, DateTime generatedAt) GetUserStats(Guid userId);
+        Task <(int total, int completed, int active, DateTime generatedAt)> GetUserStats(Guid userId, CancellationToken cancellationToken);
     }
 }

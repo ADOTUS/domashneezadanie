@@ -9,8 +9,8 @@ namespace DomashneeZadanie.Core.DataAccess
 {
     public interface IUserRepository
     {
-        ToDoUser? GetUser(Guid userId);
-        ToDoUser? GetUserByTelegramUserId(long telegramUserId);
-        void Add(ToDoUser user);
+        Task<ToDoUser?> GetUser(Guid userId, CancellationToken cancellationToken);
+        Task<ToDoUser?> GetUserByTelegramUserId(long telegramUserId, CancellationToken cancellationToken);
+        Task Add(ToDoUser user, CancellationToken cancellationToken);
     }
 }

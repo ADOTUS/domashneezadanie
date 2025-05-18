@@ -16,9 +16,9 @@ namespace DomashneeZadanie.Core.Services
             _repository = repository;
         }
 
-        public (int total, int completed, int active, DateTime generatedAt) GetUserStats(Guid userId)
+        public async Task <(int total, int completed, int active, DateTime generatedAt)> GetUserStats(Guid userId, CancellationToken cancellationToken)
         {
-            var tasks = _repository.GetAllByUserId(userId);
+            var tasks = await _repository.GetAllByUserId(userId, cancellationToken);
 
             int total = 0;
             int completed = 0;

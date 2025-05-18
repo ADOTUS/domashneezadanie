@@ -12,28 +12,38 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
     {
         private readonly List<ToDoUser> _users = new List<ToDoUser>();
 
-        public ToDoUser? GetUser(Guid userId)
+        public Task <ToDoUser?> GetUser(Guid userId, CancellationToken cancellationToken)
         {
+            ToDoUser? getted = null;
+
             foreach (var user in _users)
             {
                 if (user.UserId == userId)
-                    return user;
+                    { 
+                    getted = user; break; 
+                    }
             }
-            return null;
+            return Task.FromResult(getted);
         }
 
-        public ToDoUser? GetUserByTelegramUserId(long telegramUserId)
+        public Task <ToDoUser?> GetUserByTelegramUserId(long telegramUserId, CancellationToken cancellationToken)
         {
+            ToDoUser? getted = null;
+
             foreach (var user in _users)
             {
                 if (user.TelegramUserId == telegramUserId)
-                    return user;
+                {
+                    getted = user; 
+                    break;
+                }
             }
-            return null;
+            return Task.FromResult(getted);
         }
 
-        public void Add(ToDoUser user)
+        public async Task Add(ToDoUser user, CancellationToken cancellationToken)
         {
+            await Task.Yield();
             _users.Add(user);
         }
     }

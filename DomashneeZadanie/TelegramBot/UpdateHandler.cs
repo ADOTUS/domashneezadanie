@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using DomashneeZadanie.Core.Entities;
@@ -16,9 +17,13 @@ using Otus.ToDoList.ConsoleBot.Types;
 
 namespace DomashneeZadanie.TelegramBot
 {
+    public delegate void MessageEventHandler(string message);
 
     public class UpdateHandler : IUpdateHandler
     {
+        public event MessageEventHandler? OnHandleUpdateStarted;
+        public event MessageEventHandler? OnHandleUpdateCompleted;
+
         private readonly IUserService _userService;
         private readonly IToDoService _todoService;
         public static bool sucscess = false;
@@ -35,11 +40,13 @@ namespace DomashneeZadanie.TelegramBot
             _maxTasks = MaxTasks;
             _maxNameLength = MaxNameLength;
         }
-
-
-        public void HandleUpdateAsync(ITelegramBotClient botClient, Update update)
+        public Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken ct)
         {
-
+            Console.WriteLine($"HandleError: {exception})");
+            return Task.CompletedTask;
+        }
+        public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
+        {
             if (update.Message == null || update.Message.From == null || string.IsNullOrWhiteSpace(update.Message.Text))
                 return;
 
@@ -49,94 +56,101 @@ namespace DomashneeZadanie.TelegramBot
             var chat = update.Message.Chat;
 
 
-
-            if (messageText.StartsWith("/add"))
+            OnHandleUpdateStarted?.Invoke(messageText);
+            try
             {
-                SwAdd(botClient, update, telegramUserId, messageText, _maxTasks, _maxNameLength);
-                return;
+                if (messageText.StartsWith("/add"))
+                {
+                    await SwAdd(botClient, update, telegramUserId, messageText, _maxTasks, _maxNameLength, cancellationToken);
+                    return;
+                }
+
+                if (messageText.StartsWith("/remove"))
+                {
+                    await SwRemove(botClient, update, telegramUserId, messageText, cancellationToken);
+                    return;
+                }
+
+                if (messageText.StartsWith("/complete"))
+                {
+                    await SwComplete(botClient, update, telegramUserId, messageText, cancellationToken);
+                    return;
+                }
+                if (messageText.StartsWith("/find"))
+                {
+                    await SwFind(botClient, update, telegramUserId, messageText, cancellationToken);
+                    return;
+                }
+
+                switch (messageText)
+                {
+                    case "/start":
+                        {
+                            await SwStart(botClient, update, telegramUserId, telegramUserName, cancellationToken);
+                            break;
+                        }
+                    case "/show":
+                        {
+                            await SwShow(botClient, update, telegramUserId, cancellationToken);
+                            break;
+                        }
+                    case "/help":
+                        {
+                            await SwHelp(botClient, update, cancellationToken);
+                            break;
+                        }
+                    case "/info":
+                        {
+                            await SwInfo(botClient, update, cancellationToken);
+                            break;
+                        }
+
+                    case "/showall":
+                        {
+                            await SwShowAll(botClient, update, telegramUserId, cancellationToken);
+                            break;
+                        }
+                    case "/report":
+                        {
+                            await SwReport(botClient, update, telegramUserId, cancellationToken);
+                            break;
+                        }
+
+                    default:
+                        await botClient.SendMessage(update.Message.Chat, "Неизвестная команда. Напишите /help.", cancellationToken);
+                        break;
+
+                }
             }
-
-            if (messageText.StartsWith("/remove"))
+            finally
             {
-                SwRemove(botClient, update, telegramUserId, messageText);
-                return;
-            }
-
-            if (messageText.StartsWith("/complete"))
-            {
-                SwComplete(botClient, update, telegramUserId, messageText);
-                return;
-            }
-            if (messageText.StartsWith("/find"))
-            {
-                SwFind(botClient, update, telegramUserId, messageText);
-                return;
-            }
-
-            switch (messageText)
-            {
-                case "/start":
-                    {
-                        SwStart(botClient, update, telegramUserId, telegramUserName);
-                        break;
-                    }
-                case "/show":
-                    {
-                        SwShow(botClient, update, telegramUserId);
-                        break;
-                    }
-                case "/help":
-                    {
-                        SwHelp(botClient, update);
-                        break;
-                    }
-                case "/info":
-                    {
-                        SwInfo(botClient, update);
-                        break;
-                    }
-
-                case "/showall":
-                    {
-                        SwShowAll(botClient, update, telegramUserId);
-                        break;
-                    }
-                case "/report":
-                    {
-                        SwReport(botClient, update, telegramUserId);
-                        break;
-                    }
-
-                default:
-                    botClient.SendMessage(chat, "Неизвестная команда. Напишите /help.");
-                    break;
-
+                OnHandleUpdateCompleted?.Invoke(messageText);
             }
         }
-        private void SwReport(ITelegramBotClient botClient, Update update, long telegramUserId)
+        private async Task SwReport(ITelegramBotClient botClient, Update update, long telegramUserId, CancellationToken cancellationToken)
         {
             var chat = update.Message.Chat;
-            var user = _userService.GetUser(telegramUserId);
+            var user = await _userService.GetUser(telegramUserId, cancellationToken);
             if (user == null)
             {
-                botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.");
+                await botClient.SendMessage(update.Message.Chat, "Вы не зарегистрированы. Напишите /start.", cancellationToken);
                 return;
             }
 
-            var stats = _reportService.GetUserStats(user.UserId);
+            var stats = await _reportService.GetUserStats(user.UserId, cancellationToken);
 
             string message = $"Статистика по задачам на {stats.generatedAt:dd.MM.yyyy HH:mm:ss}.\n" +
                              $"Всего: {stats.total}; Завершенных: {stats.completed}; Активных: {stats.active};";
 
-            botClient.SendMessage(chat, message);
+            await botClient.SendMessage(chat, message, cancellationToken);
         }
-        private void SwFind(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText)
+        private async Task SwFind(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText, CancellationToken cancellationToken)
         {
             var chat = update.Message.Chat;
-            var user = _userService.GetUser(telegramUserId);
+            var user = await _userService.GetUser(telegramUserId, cancellationToken);
             if (user == null)
             {
-                botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.");
+                await botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.", cancellationToken);
                 return;
             }
 
@@ -144,14 +158,14 @@ namespace DomashneeZadanie.TelegramBot
 
             if (string.IsNullOrWhiteSpace(prefix))
             {
-                botClient.SendMessage(chat, "Укажите часть имени задачи после /find.");
+                await botClient.SendMessage(chat, "Укажите часть имени задачи после /find.", cancellationToken);
                 return;
             }
 
-            var found = _todoService.Find(user, prefix);
+            var found = await _todoService.Find(user, prefix, cancellationToken);
             if (found.Count == 0)
             {
-                botClient.SendMessage(chat, $"Задачи, начинающиеся на '{prefix}', не найдены.");
+                await botClient.SendMessage(chat, $"Задачи, начинающиеся на '{prefix}', не найдены.", cancellationToken);
                 return;
             }
 
@@ -159,29 +173,29 @@ namespace DomashneeZadanie.TelegramBot
             {
                 var task = found[i];
                 string msg = $"{i + 1}. {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - {task.Id}";
-                botClient.SendMessage(chat, msg);
+                await botClient.SendMessage(chat, msg, cancellationToken);
             }
         }
-        private void SwStart(ITelegramBotClient botClient, Update update, long telegramUserId, string telegramUserName)
+        private async Task SwStart(ITelegramBotClient botClient, Update update, long telegramUserId, string telegramUserName, CancellationToken cancellationToken)
         {
             var chat = update.Message.Chat;
-            ToDoUser user = _userService.RegisterUser(telegramUserId, telegramUserName);
-            botClient.SendMessage(chat, $"Привет, {user.TelegramUserName}!\nВы зарегистрированы.\nID: {user.UserId}\nДата: {user.RegisteredAt:dd.MM.yyyy HH:mm}");
+            ToDoUser? user = await _userService.RegisterUser(telegramUserId, telegramUserName, cancellationToken);
+            await botClient.SendMessage(chat, $"Привет, {user?.TelegramUserName}!\nВы зарегистрированы.\nID: {user?.UserId}\nДата: {user?.RegisteredAt:dd.MM.yyyy HH:mm}", cancellationToken);
         }
-        private void SwShow(ITelegramBotClient botClient, Update update, long telegramUserId)
+        private async Task SwShow(ITelegramBotClient botClient, Update update, long telegramUserId, CancellationToken cancellationToken)
         {
             var chat = update.Message.Chat;
-            var user = _userService.GetUser(telegramUserId);
+            var user = await _userService.GetUser(telegramUserId, cancellationToken);
             if (user == null)
             {
-                botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.");
+                await botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.", cancellationToken);
                 return;
             }
 
-            var tasks = _todoService.GetActiveByUserId(user.UserId);
+            var tasks = await _todoService.GetActiveByUserId(user.UserId, cancellationToken);
             if (tasks.Count == 0)
             {
-                botClient.SendMessage(chat, "Активных задач нет.");
+                await botClient.SendMessage(chat, "Активных задач нет.", cancellationToken);
                 return;
             }
 
@@ -189,23 +203,23 @@ namespace DomashneeZadanie.TelegramBot
             {
                 var task = tasks[i];
                 string msg = $"{i + 1}. {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - {task.Id}";
-                botClient.SendMessage(chat, msg);
+                await botClient.SendMessage(chat, msg, cancellationToken);
             }
         }
-        private void SwShowAll(ITelegramBotClient botClient, Update update, long telegramUserId)
+        private async Task SwShowAll(ITelegramBotClient botClient, Update update, long telegramUserId, CancellationToken cancellationToken)
         {
             var chat = update.Message.Chat;
-            ToDoUser? showUser = _userService.GetUser(telegramUserId);
+            ToDoUser? showUser = await _userService.GetUser(telegramUserId, cancellationToken);
             if (showUser == null)
             {
-                botClient.SendMessage(update.Message.Chat, "Вы не зарегистрированы. Напишите /start.");
+                await botClient.SendMessage(update.Message.Chat, "Вы не зарегистрированы. Напишите /start.", cancellationToken);
                 return;
             }
 
-            var allTasks = _todoService.GetAllByUserId(showUser.UserId);
+            var allTasks = await _todoService.GetAllByUserId(showUser.UserId, cancellationToken);
             if (allTasks.Count == 0)
             {
-                botClient.SendMessage(update.Message.Chat, "Задачи не найдены.");
+                await botClient.SendMessage(update.Message.Chat, "Задачи не найдены.", cancellationToken);
                 return;
             }
 
@@ -213,55 +227,55 @@ namespace DomashneeZadanie.TelegramBot
             {
                 ToDoItem task = allTasks[i];
                 string message = $"({task.State}) {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - {task.Id}";
-                botClient.SendMessage(update.Message.Chat, message);
+                await botClient.SendMessage(update.Message.Chat, message, cancellationToken);
             }
 
         }
-        private void SwHelp(ITelegramBotClient botClient, Update update)
+        private async Task SwHelp(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
         {
             var chat = update.Message.Chat;
-            botClient.SendMessage(chat, "Доступные команды:\n/start\n/add\n/complete\n/remove\n/show\n/showall\n/report\n/find\n/info\n/help");
+            await botClient.SendMessage(chat, "Доступные команды:\n/start\n/add\n/complete\n/remove\n/show\n/showall\n/report\n/find\n/info\n/help", cancellationToken);
         }
-        private void SwInfo(ITelegramBotClient botClient, Update update)
+        private async Task SwInfo(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
         {
             var chat = update.Message.Chat;
-            botClient.SendMessage(chat, "Версия программы 0.07 , дата создания 20.02.2025");
+            await botClient.SendMessage(chat, "Версия программы 0.07 , дата создания 20.02.2025", cancellationToken);
         }
-        private void SwAdd(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText, int MaxTasks, int MaxNameLength)
+        private async Task SwAdd(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText, int MaxTasks, int MaxNameLength, CancellationToken cancellationToken)
         {
             var chat = update.Message.Chat;
-            var user = _userService.GetUser(telegramUserId);
+            var user = await _userService.GetUser(telegramUserId, cancellationToken);
             if (user == null)
             {
-                botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.");
+                await botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.", cancellationToken);
                 return;
             }
 
             string name = messageText.Substring("/add".Length).Trim();
             if (string.IsNullOrWhiteSpace(name))
             {
-                botClient.SendMessage(chat, "Укажите описание задачи после команды /add.");
+                await botClient.SendMessage(chat, "Укажите описание задачи после команды /add.", cancellationToken);
                 return;
             }
 
             try
             {
-                ToDoItem task = _todoService.Add(user, name);
-                botClient.SendMessage(chat, $"Задача добавлена: {task.Name}");
+                ToDoItem task = await _todoService.Add(user, name, cancellationToken);
+                await botClient.SendMessage(chat, $"Задача добавлена: {task.Name}", cancellationToken);
             }
             catch (Exception ex)
             {
-                botClient.SendMessage(chat, $"Ошибка: {ex.Message}");
+                await botClient.SendMessage(chat, $"Ошибка: {ex.Message}", cancellationToken);
             }
             return;
         }
-        private void SwRemove(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText)
+        private async Task SwRemove(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText, CancellationToken cancellationToken)
         {
             var chat = update.Message.Chat;
-            var user = _userService.GetUser(telegramUserId);
+            var user = await _userService.GetUser(telegramUserId, cancellationToken);
             if (user == null)
             {
-                botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.");
+                await botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.", cancellationToken);
                 return;
             }
 
@@ -269,35 +283,35 @@ namespace DomashneeZadanie.TelegramBot
 
             if (!int.TryParse(input, out int index))
             {
-                botClient.SendMessage(chat, "Введите номер задачи, например: /remove 1");
+                await botClient.SendMessage(chat, "Введите номер задачи, например: /remove 1", cancellationToken);
                 return;
             }
 
-            var activeTasks = _todoService.GetActiveByUserId(user.UserId);
+            var activeTasks = await _todoService.GetActiveByUserId(user.UserId, cancellationToken);
 
             if (index < 1 || index > activeTasks.Count)
             {
-                botClient.SendMessage(chat, $"Некорректный номер задачи. Введите от 1 до {activeTasks.Count}.");
+                await botClient.SendMessage(chat, $"Некорректный номер задачи. Введите от 1 до {activeTasks.Count}.", cancellationToken);
                 return;
             }
 
             var taskToRemove = activeTasks[index - 1];
-            _todoService.Delete(taskToRemove.Id);
-            botClient.SendMessage(chat, $"Задача '{taskToRemove.Name}' удалена.");
+            await _todoService.Delete(taskToRemove.Id, cancellationToken);
+            await botClient.SendMessage(chat, $"Задача '{taskToRemove.Name}' удалена.", cancellationToken);
             return;
         }
-        private void SwComplete(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText)
+        private async Task SwComplete(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText, CancellationToken cancellationToken)
         {
             var chat = update.Message.Chat;
-            var user = _userService.GetUser(telegramUserId);
+            var user = await _userService.GetUser(telegramUserId, cancellationToken);
             if (user == null)
             {
-                botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.");
+                await botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.", cancellationToken);
                 return;
             }
 
             string input = messageText.Substring("/complete".Length).Trim();
-            var activeTasks = _todoService.GetActiveByUserId(user.UserId);
+            var activeTasks = await _todoService.GetActiveByUserId(user.UserId, cancellationToken);
 
             Guid taskId = Guid.Parse(input);
 
@@ -305,8 +319,8 @@ namespace DomashneeZadanie.TelegramBot
             {
                 if (task.Id == taskId)
                 {
-                    _todoService.MarkCompleted(task.Id);
-                    botClient.SendMessage(update.Message.Chat, $"Задача \"{task.Name}\" помечена исполненной.");
+                    await _todoService.MarkCompleted(task.Id, cancellationToken);
+                    await botClient.SendMessage(update.Message.Chat, $"Задача \"{task.Name}\" помечена исполненной.", cancellationToken);
                 }
             }
             return;

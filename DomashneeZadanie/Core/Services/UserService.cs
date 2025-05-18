@@ -13,9 +13,9 @@ public class UserService : IUserService
         _userRepository = userRepository;
     }
 
-    public ToDoUser RegisterUser(long telegramUserId, string telegramUserName)
+    public async Task<ToDoUser?> RegisterUser(long telegramUserId, string telegramUserName, CancellationToken cancellationToken)
     {
-        var existingUser = _userRepository.GetUserByTelegramUserId(telegramUserId);
+        var existingUser = await _userRepository.GetUserByTelegramUserId(telegramUserId, cancellationToken);
         if (existingUser != null)
             return existingUser;
 
@@ -27,11 +27,11 @@ public class UserService : IUserService
             RegisteredAt = DateTime.Now
         };
 
-        _userRepository.Add(newUser);
+        await _userRepository.Add(newUser,cancellationToken);
         return newUser;
     }
-    public ToDoUser? GetUser(long telegramUserId)
+    public async Task<ToDoUser?> GetUser(long telegramUserId, CancellationToken cancellationToken)
     {
-        return _userRepository.GetUserByTelegramUserId(telegramUserId);
+        return await _userRepository.GetUserByTelegramUserId(telegramUserId, cancellationToken);
     }
 }
