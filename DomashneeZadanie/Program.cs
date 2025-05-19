@@ -1,4 +1,5 @@
 ﻿using DomashneeZadanie;
+using DomashneeZadanie.Core.Exceptions;
 using DomashneeZadanie.Core.Services;
 using DomashneeZadanie.Infrastructure.DataAccess;
 using DomashneeZadanie.TelegramBot;
@@ -13,11 +14,11 @@ using System.Threading.Tasks;
 namespace DomashneZadanie
 {
     internal static class Program
-    {
+    { 
         public static async Task Main(string[] args)
-        {
-            int maxTasks = SetGlobalVar("Введите максимальное количество задач (1–10):", 1, 10);
-            int maxNameLength = SetGlobalVar("Введите максимальную длину задачи (1–255):", 1, 255);
+        { 
+            int maxTasks = SetGlobalVar("Введите максимальное количество задач (1–10):", 1, 10 ,0);
+            int maxNameLength = SetGlobalVar("Введите максимальную длину задачи (1–255):", 1, 255 ,1);
 
 
             var userRepository = new InMemoryUserRepository();
@@ -62,7 +63,7 @@ namespace DomashneZadanie
             }
 
         }
-        private static int SetGlobalVar(string msg, int min, int max)
+        private static int SetGlobalVar(string msg, int min, int max, int varType)
         {
             while (true)
             {
@@ -70,7 +71,7 @@ namespace DomashneZadanie
                 string? input = Console.ReadLine();
                 try
                 {
-                    int value = ParseAndValidateInt(input, min, max);
+                    int value = ParseAndValidateInt(input, min, max, varType);
                     Console.WriteLine($"Вы ввели: {value}");
                     return value;
                 }
@@ -78,15 +79,24 @@ namespace DomashneZadanie
                 {
                     Console.WriteLine($"Ошибка: {ex.Message}");
                 }
+                catch (Exception ex) 
+                {
+                    Console.WriteLine($"Ошибка: {ex.Message}");
+                }
             }
         }
-        private static int ParseAndValidateInt(string? input, int min, int max)
+        private static int ParseAndValidateInt(string? input, int min, int max, int varType)
         {
             if (int.TryParse(input, out int value) && value >= min && value <= max)
             {
                 return value;
             }
-            throw new ArgumentException($"Введите целое число от {min} до {max}.");
+            else
+            if (varType == 0)
+            throw new TaskCountLimitException(max);
+            else
+            throw new TaskLengthLimitException(max);
+
         }
     }
 }
