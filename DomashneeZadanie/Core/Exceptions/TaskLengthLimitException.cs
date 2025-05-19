@@ -8,7 +8,7 @@ namespace DomashneeZadanie.Core.Exceptions
 {
     class TaskLengthLimitException : Exception
     {
-        public TaskLengthLimitException(int lenghtTasks, string addTask) : base($"Максимальное количество символов в задаче - {lenghtTasks}. Вы ввели - {addTask}")
+        public TaskLengthLimitException(int lenghtTasks) : base($"Максимальное количество символов в задаче - {lenghtTasks}")
         { }
     }
 }

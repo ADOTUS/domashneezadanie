@@ -4,6 +4,6 @@ namespace DomashneeZadanie.Core.Services;
 
 public interface IUserService
 {
-    ToDoUser RegisterUser(long telegramUserId, string telegramUserName);
-    ToDoUser? GetUser(long telegramUserId);
+    Task<ToDoUser?> RegisterUser(long telegramUserId, string telegramUserName, CancellationToken cancellationToken);
+    Task<ToDoUser?> GetUser(long telegramUserId, CancellationToken cancellationToken);
 }

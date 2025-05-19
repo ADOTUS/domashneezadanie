@@ -1,4 +1,5 @@
 ﻿using DomashneeZadanie;
+using DomashneeZadanie.Core.Exceptions;
 using DomashneeZadanie.Core.Services;
 using DomashneeZadanie.Infrastructure.DataAccess;
 using DomashneeZadanie.TelegramBot;
@@ -13,18 +14,17 @@ using System.Threading.Tasks;
 namespace DomashneZadanie
 {
     internal static class Program
-    {
-        public static void Main(string[] args)
-        {
-            int maxTasks = SetGlobalVar("Введите максимальное количество задач (1–10):", 1, 10);
-            int maxNameLength = SetGlobalVar("Введите максимальную длину задачи (1–255):", 1, 255);
+    { 
+        public static async Task Main(string[] args)
+        { 
+            int maxTasks = SetGlobalVar("Введите максимальное количество задач (1–10):", 1, 10 ,0);
+            int maxNameLength = SetGlobalVar("Введите максимальную длину задачи (1–255):", 1, 255 ,1);
 
 
             var userRepository = new InMemoryUserRepository();
             var userService = new UserService(userRepository);
 
             var todoRepository = new InMemoryToDoRepository();
-            //var todoService = new ToDoService(todoRepository);
             var todoService = new ToDoService(todoRepository, maxTasks, maxNameLength);
 
             var reportService = new ToDoReportService(todoRepository);
@@ -32,9 +32,38 @@ namespace DomashneZadanie
             var botClient = new ConsoleBotClient();
             var handler = new UpdateHandler(userService, todoService , reportService, maxTasks, maxNameLength);
 
-            botClient.StartReceiving(handler);
+            using var cts = new CancellationTokenSource();
+
+            handler.OnHandleUpdateStarted += HandleStarted;
+            handler.OnHandleUpdateCompleted += HandleCompleted;
+
+            try
+            {
+                Console.WriteLine("Нажми Ctrl+C для выхода");
+                botClient.StartReceiving(handler, cts.Token);
+                await Task.Delay(-1, cts.Token); 
+            }
+            finally
+            {
+                //понадобится в следующем дз, 9. В настоящий момент до сюда не дойти.
+                Console.WriteLine("Подписки на события удалены");
+                handler.OnHandleUpdateStarted -= HandleStarted;
+                handler.OnHandleUpdateCompleted -= HandleCompleted;
+
+            }
+
+            void HandleStarted(string message)
+            {
+                Console.WriteLine($"Началась обработка сообщения '{message}'");
+            }
+
+            void HandleCompleted(string message)
+            {
+                Console.WriteLine($"Закончилась обработка сообщения '{message}'");
+            }
+
         }
-        private static int SetGlobalVar(string msg, int min, int max)
+        private static int SetGlobalVar(string msg, int min, int max, int varType)
         {
             while (true)
             {
@@ -42,7 +71,7 @@ namespace DomashneZadanie
                 string? input = Console.ReadLine();
                 try
                 {
-                    int value = ParseAndValidateInt(input, min, max);
+                    int value = ParseAndValidateInt(input, min, max, varType);
                     Console.WriteLine($"Вы ввели: {value}");
                     return value;
                 }
@@ -50,15 +79,24 @@ namespace DomashneZadanie
                 {
                     Console.WriteLine($"Ошибка: {ex.Message}");
                 }
+                catch (Exception ex) 
+                {
+                    Console.WriteLine($"Ошибка: {ex.Message}");
+                }
             }
         }
-        private static int ParseAndValidateInt(string? input, int min, int max)
+        private static int ParseAndValidateInt(string? input, int min, int max, int varType)
         {
             if (int.TryParse(input, out int value) && value >= min && value <= max)
             {
                 return value;
             }
-            throw new ArgumentException($"Введите целое число от {min} до {max}.");
+            else
+            if (varType == 0)
+            throw new TaskCountLimitException(max);
+            else
+            throw new TaskLengthLimitException(max);
+
         }
     }
 }

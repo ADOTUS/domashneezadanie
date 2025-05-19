@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace DomashneeZadanie.Infrastructure.DataAccess
 {
@@ -12,7 +13,7 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
     {
         private readonly List<ToDoItem> _items = new();
 
-        public IReadOnlyList<ToDoItem> GetAllByUserId(Guid userId)
+        public Task<IReadOnlyList<ToDoItem>> GetAllByUserId(Guid userId, CancellationToken cancellationToken)
         {
             List<ToDoItem> result = new List<ToDoItem>();
             foreach (var item in _items)
@@ -22,10 +23,10 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
                     result.Add(item);
                 }
             }
-            return result;
+            return Task.FromResult((IReadOnlyList<ToDoItem>)result);
         }
 
-        public IReadOnlyList<ToDoItem> GetActiveByUserId(Guid userId)
+        public Task<IReadOnlyList<ToDoItem>> GetActiveByUserId(Guid userId, CancellationToken cancellationToken)
         {
             List<ToDoItem> result = new List<ToDoItem>();
             foreach (var item in _items)
@@ -35,27 +36,30 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
                     result.Add(item);
                 }
             }
-            return result;
+            return Task.FromResult((IReadOnlyList<ToDoItem>)result);
         }
 
-        public ToDoItem? Get(Guid id)
+        public Task<ToDoItem?> Get(Guid id, CancellationToken cancellationToken)
         {
+            ToDoItem? getted = null;
+
             foreach (var item in _items)
             {
                 if (item.Id == id)
                 {
-                    return item;
+                    getted = item;
+                    break;
                 }
             }
-            return null;
+            return Task.FromResult(getted);
         }
-
-        public void Add(ToDoItem item)
+        public Task Add(ToDoItem item, CancellationToken cancellationToken)
         {
             _items.Add(item);
+            return Task.CompletedTask;
         }
 
-        public void Update(ToDoItem item)
+        public Task Update(ToDoItem item, CancellationToken cancellationToken)
         {
             for (int i = 0; i < _items.Count; i++)
             {
@@ -65,9 +69,11 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
                     break;
                 }
             }
+
+            return Task.CompletedTask;
         }
 
-        public void Delete(Guid id)
+        public Task Delete(Guid id, CancellationToken cancellationToken)
         {
             for (int i = 0; i < _items.Count; i++)
             {
@@ -77,21 +83,23 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
                     break;
                 }
             }
+
+            return Task.CompletedTask;
         }
 
-        public bool ExistsByName(Guid userId, string name)
+        public Task <bool> ExistsByName(Guid userId, string name, CancellationToken cancellationToken)
         {
             foreach (var item in _items)
             {
                 if (item.UserId == userId && item.Name == name)
                 {
-                    return true;
+                    return Task.FromResult(true);
                 }
             }
-            return false;
+            return Task.FromResult(false);
         }
 
-        public int CountActive(Guid userId)
+        public Task<int>  CountActive(Guid userId, CancellationToken cancellationToken)
         {
             int count = 0;
             foreach (var item in _items)
@@ -101,9 +109,9 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
                     count++;
                 }
             }
-            return count;
+            return Task.FromResult(count);
         }
-        public IReadOnlyList<ToDoItem> Findd(Guid userId, Func<ToDoItem, bool> predicate)
+        public Task <IReadOnlyList<ToDoItem>> Findd(Guid userId, Func<ToDoItem, bool> predicate, CancellationToken cancellationToken)
         {
             List<ToDoItem> result = new List<ToDoItem>();
 
@@ -117,7 +125,7 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
                     }
                 }
             }
-            return result;
+            return Task.FromResult<IReadOnlyList<ToDoItem>>(result);
         }
     }
 

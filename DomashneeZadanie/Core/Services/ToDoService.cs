@@ -22,19 +22,21 @@ namespace DomashneeZadanie.Core.Services
             _maxNameLength = maxNameLength;
         }
 
-        public IReadOnlyList<ToDoItem> GetAllByUserId(Guid userId)
+        public async Task <IReadOnlyList<ToDoItem>> GetAllByUserId(Guid userId, CancellationToken cancellationToken)
         {
-            return _repository.GetAllByUserId(userId);
+            return await _repository.GetAllByUserId(userId, cancellationToken);
         }
 
-        public IReadOnlyList<ToDoItem> GetActiveByUserId(Guid userId)
+        public async Task <IReadOnlyList<ToDoItem>> GetActiveByUserId(Guid userId, CancellationToken cancellationToken)
         {
-            return _repository.GetActiveByUserId(userId);
+            return await _repository.GetActiveByUserId(userId, cancellationToken);
         }
-
-        public ToDoItem Add(ToDoUser user, string name)
+        
+        public async Task <ToDoItem> Add(ToDoUser user, string name, CancellationToken cancellationToken)
         {
-            int currentTaskCount = _repository.CountActive(user.UserId);
+            int currentTaskCount = await _repository.CountActive(user.UserId, cancellationToken);
+
+
             if (currentTaskCount >= _maxTasks)
             {
                 throw new ArgumentException($"Превышено количество задач. Максимум — {_maxTasks}.");
@@ -45,35 +47,35 @@ namespace DomashneeZadanie.Core.Services
                 throw new ArgumentException($"Длина задачи превышает допустимую. Максимум — {_maxNameLength} символов.");
             }
 
-            bool exists = _repository.ExistsByName(user.UserId, name);
+            bool exists = await _repository.ExistsByName(user.UserId, name, cancellationToken);
             if (exists)
             {
                 throw new DuplicateTaskException(name);
             }
 
             ToDoItem newItem = new ToDoItem(user, name);
-            _repository.Add(newItem);
+            await _repository.Add(newItem, cancellationToken);
             return newItem;
         }
 
-        public void MarkCompleted(Guid id)
+        public async Task MarkCompleted(Guid id, CancellationToken cancellationToken)
         {
-            ToDoItem? item = _repository.Get(id);
+            ToDoItem? item = await _repository.Get(id,cancellationToken);
             if (item != null)
             {
                 item.State = ToDoItemState.Completed;
                 item.StateChangedAt = DateTime.Now;
-                _repository.Update(item);
+                await _repository.Update(item, cancellationToken);
             }
         }
 
-        public void Delete(Guid id)
+        public async Task Delete(Guid id, CancellationToken cancellationToken)
         {
-            _repository.Delete(id);
+            await _repository.Delete(id, cancellationToken);
         }
-        public IReadOnlyList<ToDoItem> Find(ToDoUser user, string namePrefix)
+        public async Task <IReadOnlyList<ToDoItem>> Find(ToDoUser user, string namePrefix, CancellationToken cancellationToken)
         {
-            return _repository.Findd(user.UserId, new NamePrefixFind(namePrefix).IsMatch);
+            return await _repository.Findd(user.UserId, new NamePrefixFind(namePrefix).IsMatch, cancellationToken);
         }
     }
 }
