@@ -1,21 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Xml.Linq;
-using DomashneeZadanie.Core.Entities;
-using DomashneeZadanie.Core.Exceptions;
+﻿using DomashneeZadanie.Core.Entities;
 using DomashneeZadanie.Core.Services;
-using DomashneZadanie;
+using System;
+using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
-using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 namespace DomashneeZadanie.TelegramBot
 {
@@ -42,7 +31,7 @@ namespace DomashneeZadanie.TelegramBot
             _maxTasks = MaxTasks;
             _maxNameLength = MaxNameLength;
         }
- 
+
         public Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, HandleErrorSource source, CancellationToken cancellationToken)
         {
             Console.WriteLine($"HandleError: {exception})");
@@ -50,7 +39,7 @@ namespace DomashneeZadanie.TelegramBot
         }
         public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
         {
-            if (update.Message == null || update.Message.From == null || string.IsNullOrWhiteSpace(update.Message.Text))
+            if (update.Message == null || update.Message.From == null || string.IsNullOrWhiteSpace(update.Message.Text) || update.Message.Chat == null)
                 return;
 
             long telegramUserId = update.Message.From.Id;
@@ -90,12 +79,19 @@ namespace DomashneeZadanie.TelegramBot
                     case "/start":
                         {
                             await SwStart(botClient, update, telegramUserId, telegramUserName, cancellationToken);
+
+                            var isRegistered = await _userService.GetUser(telegramUserId, cancellationToken) != null;
+
+                            await botClient.SendMessage(chat,
+                                                        $"Привет, {telegramUserName}!\nВы зарегистрированы.\nID: {telegramUserId}",
+                                                        replyMarkup: GetKeyboard(true),
+                                                        cancellationToken: cancellationToken);
                             break;
                         }
                     case "/show":
                         {
-                            await SwShow(botClient, update, telegramUserId, cancellationToken);
-                            break;
+                           await SwShow(botClient, update, telegramUserId, cancellationToken);
+                           break;
                         }
                     case "/help":
                         {
@@ -132,7 +128,11 @@ namespace DomashneeZadanie.TelegramBot
         }
         private async Task SwReport(ITelegramBotClient botClient, Update update, long telegramUserId, CancellationToken cancellationToken)
         {
-            var chat = update.Message.Chat;
+            if (update.Message?.Chat == null)
+            return;
+
+            var chat = update.Message.Chat; 
+
             var user = await _userService.GetUser(telegramUserId, cancellationToken);
             if (user == null)
             {
@@ -149,6 +149,8 @@ namespace DomashneeZadanie.TelegramBot
         }
         private async Task SwFind(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText, CancellationToken cancellationToken)
         {
+            if (update.Message?.Chat == null)
+            return;
             var chat = update.Message.Chat;
             var user = await _userService.GetUser(telegramUserId, cancellationToken);
             if (user == null)
@@ -181,36 +183,45 @@ namespace DomashneeZadanie.TelegramBot
         }
         private async Task SwStart(ITelegramBotClient botClient, Update update, long telegramUserId, string telegramUserName, CancellationToken cancellationToken)
         {
+            if (update.Message?.Chat == null)
+                return;
             var chat = update.Message.Chat;
             ToDoUser? user = await _userService.RegisterUser(telegramUserId, telegramUserName, cancellationToken);
             await botClient.SendMessage(chat, $"Привет, {user?.TelegramUserName}!\nВы зарегистрированы.\nID: {user?.UserId}\nДата: {user?.RegisteredAt:dd.MM.yyyy HH:mm}", cancellationToken: cancellationToken);
         }
         private async Task SwShow(ITelegramBotClient botClient, Update update, long telegramUserId, CancellationToken cancellationToken)
         {
+            if (update.Message?.Chat == null)
+                return;
             var chat = update.Message.Chat;
             var user = await _userService.GetUser(telegramUserId, cancellationToken);
             if (user == null)
             {
-                await botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.", cancellationToken: cancellationToken);
+                await botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.",
+                        replyMarkup: GetKeyboard(false), cancellationToken: cancellationToken);
                 return;
             }
 
             var tasks = await _todoService.GetActiveByUserId(user.UserId, cancellationToken);
             if (tasks.Count == 0)
             {
-                await botClient.SendMessage(chat, "Активных задач нет.", cancellationToken: cancellationToken);
+                await botClient.SendMessage(chat, "Активных задач нет.",
+                        replyMarkup: GetKeyboard(true), cancellationToken: cancellationToken);
                 return;
             }
 
             for (int i = 0; i < tasks.Count; i++)
             {
                 var task = tasks[i];
-                string msg = $"{i + 1}. {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - {task.Id}";
-                await botClient.SendMessage(chat, msg, cancellationToken: cancellationToken);
+                string msg = $"{i + 1}. {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - '{task.Id}'";
+                await botClient.SendMessage(chat, msg,
+                        replyMarkup: GetKeyboard(true), cancellationToken: cancellationToken);
             }
         }
         private async Task SwShowAll(ITelegramBotClient botClient, Update update, long telegramUserId, CancellationToken cancellationToken)
         {
+            if (update.Message?.Chat == null)
+                return;
             var chat = update.Message.Chat;
             ToDoUser? showUser = await _userService.GetUser(telegramUserId, cancellationToken);
             if (showUser == null)
@@ -229,23 +240,29 @@ namespace DomashneeZadanie.TelegramBot
             for (int i = 0; i < allTasks.Count; i++)
             {
                 ToDoItem task = allTasks[i];
-                string message = $"({task.State}) {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - {task.Id}";
+                string message = $"({task.State}) {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - '{task.Id}'";
                 await botClient.SendMessage(update.Message.Chat, message, cancellationToken: cancellationToken);
             }
 
         }
         private async Task SwHelp(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
         {
+            if (update.Message?.Chat == null)
+                return;
             var chat = update.Message.Chat;
             await botClient.SendMessage(chat, "Доступные команды:\n/start\n/add\n/complete\n/remove\n/show\n/showall\n/report\n/find\n/info\n/help", cancellationToken: cancellationToken);
         }
         private async Task SwInfo(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
         {
+            if (update.Message?.Chat == null)
+                return;
             var chat = update.Message.Chat;
             await botClient.SendMessage(chat, "Версия программы 0.07 , дата создания 20.02.2025", cancellationToken: cancellationToken);
         }
         private async Task SwAdd(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText, int MaxTasks, int MaxNameLength, CancellationToken cancellationToken)
         {
+            if (update.Message?.Chat == null)
+                return;
             var chat = update.Message.Chat;
             var user = await _userService.GetUser(telegramUserId, cancellationToken);
             if (user == null)
@@ -274,6 +291,8 @@ namespace DomashneeZadanie.TelegramBot
         }
         private async Task SwRemove(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText, CancellationToken cancellationToken)
         {
+            if (update.Message?.Chat == null)
+                return;
             var chat = update.Message.Chat;
             var user = await _userService.GetUser(telegramUserId, cancellationToken);
             if (user == null)
@@ -305,6 +324,8 @@ namespace DomashneeZadanie.TelegramBot
         }
         private async Task SwComplete(ITelegramBotClient botClient, Update update, long telegramUserId, string messageText, CancellationToken cancellationToken)
         {
+            if (update.Message?.Chat == null)
+                return;
             var chat = update.Message.Chat;
             var user = await _userService.GetUser(telegramUserId, cancellationToken);
             if (user == null)
@@ -328,6 +349,21 @@ namespace DomashneeZadanie.TelegramBot
             }
             return;
         }
+        private static ReplyMarkup GetKeyboard(bool isRegistered)
+        {
+            if (!isRegistered)
+            {
+                return new ReplyKeyboardMarkup(new[] { new KeyboardButton[] { "/start" } })
+                {
+                    ResizeKeyboard = true
+                };
+            }
 
+            return new ReplyKeyboardMarkup(new[]{new KeyboardButton[] { "/showall", "/show" },new KeyboardButton[] { "/report" }})
+            {
+                ResizeKeyboard = true
+            };
+        }
     }
+
 }

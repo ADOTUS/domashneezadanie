@@ -1,16 +1,11 @@
-﻿using DomashneeZadanie;
-using DomashneeZadanie.Core.Exceptions;
+﻿using DomashneeZadanie.Core.Exceptions;
 using DomashneeZadanie.Core.Services;
 using DomashneeZadanie.Infrastructure.DataAccess;
 using DomashneeZadanie.TelegramBot;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Threading;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
+using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 namespace DomashneZadanie
 {
@@ -19,13 +14,13 @@ namespace DomashneZadanie
 
         public static async Task Main(string[] args)
         {
-            string token = Environment.GetEnvironmentVariable("Telegram_TOKEN", EnvironmentVariableTarget.User);
+            string? token = Environment.GetEnvironmentVariable("Telegram_TOKEN", EnvironmentVariableTarget.User);
             if (string.IsNullOrEmpty(token))
             {
                 Console.WriteLine("Bot token not found. Please set the TELEGRAM_BOT_TOKEN environment variable.");
                 return;
             }
-            //Console.WriteLine(token);
+            Console.WriteLine(token);
 
 
             int maxTasks = SetGlobalVar("Введите максимальное количество задач (1–10):", 1, 10, 0);
@@ -42,17 +37,15 @@ namespace DomashneZadanie
 
             var botClient = new TelegramBotClient(token);
 
-
             var handler = new UpdateHandler(userService, todoService, reportService, maxTasks, maxNameLength);
 
             using var cts = new CancellationTokenSource();
 
+            await SetBotCommands(botClient, cancellationToken: cts.Token);
+
             handler.OnHandleUpdateStarted += HandleStarted;
             handler.OnHandleUpdateCompleted += HandleCompleted;
-             
 
-
-            //await Task.Delay(-1);
             try
             {
                 var receiverOptions = new ReceiverOptions
@@ -61,17 +54,32 @@ namespace DomashneZadanie
                     DropPendingUpdates = true
                 };
 
-                botClient.StartReceiving(handler, receiverOptions, cancellationToken: cts.Token);
-                var me = await botClient.GetMe();
-                Console.WriteLine($"{me.FirstName} запущен!");
+                botClient.StartReceiving(updateHandler: handler, receiverOptions: receiverOptions, cancellationToken: cts.Token);
 
-                //Console.WriteLine("Нажми Ctrl+C для выхода");
-                //botClient.StartReceiving(handler, cts.Token);
-                await Task.Delay(-1, cts.Token);
+                Console.WriteLine("Бот запущен. Нажмите клавишу 'A' для выхода, любую другую — для информации о боте.");
+
+                while (true)
+                {
+                    ConsoleKeyInfo key = Console.ReadKey(intercept: true);
+
+                    if (key.Key == ConsoleKey.A)
+                    {
+                        Console.WriteLine("\nЗавершение работы...");
+                        cts.Cancel();
+                        break;
+                    }
+                    else
+                    {
+                        var me = await botClient.GetMe();
+                        Console.WriteLine($"\nИнформация о боте:");
+                        Console.WriteLine($"Username: @{me.Username}");
+                        Console.WriteLine($"Имя: {me.FirstName}");
+                        Console.WriteLine($"ID: {me.Id}");
+                    }
+                }
             }
             finally
             {
-                //понадобится в следующем дз, 9. В настоящий момент до сюда не дойти.
                 Console.WriteLine("Подписки на события удалены");
                 handler.OnHandleUpdateStarted -= HandleStarted;
                 handler.OnHandleUpdateCompleted -= HandleCompleted;
@@ -123,6 +131,24 @@ namespace DomashneZadanie
             else
                 throw new TaskLengthLimitException(max);
 
+        }
+        public static async Task SetBotCommands(ITelegramBotClient botClient, CancellationToken cancellationToken)
+        {
+            var commands = new List<BotCommand>
+                 {
+                     new() { Command = "start",     Description = "Регистрация пользователя" },
+                     new() { Command = "add",       Description = "Добавить задачу (/add TaskName)" },
+                     new() { Command = "remove",    Description = "Удалить задачу (/remove TaskId)" },
+                     new() { Command = "complete",  Description = "Завершить задачу (/complete TaskId)" },
+                     new() { Command = "show",      Description = "Показать активные задачи" },
+                     new() { Command = "showall",   Description = "Показать все задачи" },
+                     new() { Command = "report",    Description = "Статистика задач" },
+                     new() { Command = "find",      Description = "Поиск задач (/find keyword)" },
+                     new() { Command = "help",      Description = "Список команд" },
+                     new() { Command = "info",      Description = "Информация о боте" },
+                 };
+
+            await botClient.SetMyCommands(commands, cancellationToken: cancellationToken);
         }
     }
 }
