@@ -1,6 +1,5 @@
 using DomashneeZadanie.Core.DataAccess;
 using DomashneeZadanie.Core.Entities;
-using Otus.ToDoList.ConsoleBot.Types;
 
 namespace DomashneeZadanie.Core.Services;
 

@@ -1,24 +1,30 @@
-﻿using DomashneeZadanie;
-using DomashneeZadanie.Core.Exceptions;
+﻿using DomashneeZadanie.Core.Exceptions;
 using DomashneeZadanie.Core.Services;
 using DomashneeZadanie.Infrastructure.DataAccess;
 using DomashneeZadanie.TelegramBot;
-using Otus.ToDoList.ConsoleBot;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+using System.Threading;
+using Telegram.Bot;
+using Telegram.Bot.Polling;
+using Telegram.Bot.Types;
+using Telegram.Bot.Types.Enums;
 namespace DomashneZadanie
 {
     internal static class Program
-    { 
+    {
+
         public static async Task Main(string[] args)
-        { 
-            int maxTasks = SetGlobalVar("Введите максимальное количество задач (1–10):", 1, 10 ,0);
-            int maxNameLength = SetGlobalVar("Введите максимальную длину задачи (1–255):", 1, 255 ,1);
+        {
+            string? token = Environment.GetEnvironmentVariable("Telegram_TOKEN", EnvironmentVariableTarget.User);
+            if (string.IsNullOrEmpty(token))
+            {
+                Console.WriteLine("Bot token not found. Please set the TELEGRAM_BOT_TOKEN environment variable.");
+                return;
+            }
+            Console.WriteLine(token);
+
+
+            int maxTasks = SetGlobalVar("Введите максимальное количество задач (1–10):", 1, 10, 0);
+            int maxNameLength = SetGlobalVar("Введите максимальную длину задачи (1–255):", 1, 255, 1);
 
 
             var userRepository = new InMemoryUserRepository();
@@ -29,23 +35,51 @@ namespace DomashneZadanie
 
             var reportService = new ToDoReportService(todoRepository);
 
-            var botClient = new ConsoleBotClient();
-            var handler = new UpdateHandler(userService, todoService , reportService, maxTasks, maxNameLength);
+            var botClient = new TelegramBotClient(token);
+
+            var handler = new UpdateHandler(userService, todoService, reportService, maxTasks, maxNameLength);
 
             using var cts = new CancellationTokenSource();
+
+            await SetBotCommands(botClient, cancellationToken: cts.Token);
 
             handler.OnHandleUpdateStarted += HandleStarted;
             handler.OnHandleUpdateCompleted += HandleCompleted;
 
             try
             {
-                Console.WriteLine("Нажми Ctrl+C для выхода");
-                botClient.StartReceiving(handler, cts.Token);
-                await Task.Delay(-1, cts.Token); 
+                var receiverOptions = new ReceiverOptions
+                {
+                    AllowedUpdates = [UpdateType.Message],
+                    DropPendingUpdates = true
+                };
+
+                botClient.StartReceiving(updateHandler: handler, receiverOptions: receiverOptions, cancellationToken: cts.Token);
+
+                Console.WriteLine("Бот запущен. Нажмите клавишу 'A' для выхода, любую другую — для информации о боте.");
+
+                while (true)
+                {
+                    ConsoleKeyInfo key = Console.ReadKey(intercept: true);
+
+                    if (key.Key == ConsoleKey.A)
+                    {
+                        Console.WriteLine("\nЗавершение работы...");
+                        cts.Cancel();
+                        break;
+                    }
+                    else
+                    {
+                        var me = await botClient.GetMe();
+                        Console.WriteLine($"\nИнформация о боте:");
+                        Console.WriteLine($"Username: @{me.Username}");
+                        Console.WriteLine($"Имя: {me.FirstName}");
+                        Console.WriteLine($"ID: {me.Id}");
+                    }
+                }
             }
             finally
             {
-                //понадобится в следующем дз, 9. В настоящий момент до сюда не дойти.
                 Console.WriteLine("Подписки на события удалены");
                 handler.OnHandleUpdateStarted -= HandleStarted;
                 handler.OnHandleUpdateCompleted -= HandleCompleted;
@@ -79,7 +113,7 @@ namespace DomashneZadanie
                 {
                     Console.WriteLine($"Ошибка: {ex.Message}");
                 }
-                catch (Exception ex) 
+                catch (Exception ex)
                 {
                     Console.WriteLine($"Ошибка: {ex.Message}");
                 }
@@ -93,10 +127,28 @@ namespace DomashneZadanie
             }
             else
             if (varType == 0)
-            throw new TaskCountLimitException(max);
+                throw new TaskCountLimitException(max);
             else
-            throw new TaskLengthLimitException(max);
+                throw new TaskLengthLimitException(max);
 
+        }
+        public static async Task SetBotCommands(ITelegramBotClient botClient, CancellationToken cancellationToken)
+        {
+            var commands = new List<BotCommand>
+                 {
+                     new() { Command = "start",     Description = "Регистрация пользователя" },
+                     new() { Command = "add",       Description = "Добавить задачу (/add TaskName)" },
+                     new() { Command = "remove",    Description = "Удалить задачу (/remove TaskId)" },
+                     new() { Command = "complete",  Description = "Завершить задачу (/complete TaskId)" },
+                     new() { Command = "show",      Description = "Показать активные задачи" },
+                     new() { Command = "showall",   Description = "Показать все задачи" },
+                     new() { Command = "report",    Description = "Статистика задач" },
+                     new() { Command = "find",      Description = "Поиск задач (/find keyword)" },
+                     new() { Command = "help",      Description = "Список команд" },
+                     new() { Command = "info",      Description = "Информация о боте" },
+                 };
+
+            await botClient.SetMyCommands(commands, cancellationToken: cancellationToken);
         }
     }
 }
