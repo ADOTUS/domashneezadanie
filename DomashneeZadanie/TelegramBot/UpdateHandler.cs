@@ -79,13 +79,7 @@ namespace DomashneeZadanie.TelegramBot
                     case "/start":
                         {
                             await SwStart(botClient, update, telegramUserId, telegramUserName, cancellationToken);
-
                             var isRegistered = await _userService.GetUser(telegramUserId, cancellationToken) != null;
-
-                            await botClient.SendMessage(chat,
-                                                        $"Привет, {telegramUserName}!\nВы зарегистрированы.\nID: {telegramUserId}",
-                                                        replyMarkup: GetKeyboard(true),
-                                                        cancellationToken: cancellationToken);
                             break;
                         }
                     case "/show":

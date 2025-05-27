@@ -1,7 +1,9 @@
-﻿using DomashneeZadanie.Core.Exceptions;
+﻿using DomashneeZadanie.Core.DataAccess;
+using DomashneeZadanie.Core.Exceptions;
 using DomashneeZadanie.Core.Services;
 using DomashneeZadanie.Infrastructure.DataAccess;
 using DomashneeZadanie.TelegramBot;
+using System.IO;
 using System.Threading;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
@@ -26,11 +28,12 @@ namespace DomashneZadanie
             int maxTasks = SetGlobalVar("Введите максимальное количество задач (1–10):", 1, 10, 0);
             int maxNameLength = SetGlobalVar("Введите максимальную длину задачи (1–255):", 1, 255, 1);
 
-
-            var userRepository = new InMemoryUserRepository();
+            var userRepository = new FileUserRepository("UserData");
             var userService = new UserService(userRepository);
 
-            var todoRepository = new InMemoryToDoRepository();
+            string baseFolder = "ToDoData";
+            IToDoRepository todoRepository = new FileToDoRepository(baseFolder);
+
             var todoService = new ToDoService(todoRepository, maxTasks, maxNameLength);
 
             var reportService = new ToDoReportService(todoRepository);
@@ -43,7 +46,7 @@ namespace DomashneZadanie
 
             await SetBotCommands(botClient, cancellationToken: cts.Token);
 
-            handler.OnHandleUpdateStarted += HandleStarted;
+            handler.OnHandleUpdateStarted += HandleStarted; 
             handler.OnHandleUpdateCompleted += HandleCompleted;
 
             try
@@ -52,8 +55,7 @@ namespace DomashneZadanie
                 {
                     AllowedUpdates = [UpdateType.Message],
                     DropPendingUpdates = true
-                };
-
+                }; 
                 botClient.StartReceiving(updateHandler: handler, receiverOptions: receiverOptions, cancellationToken: cts.Token);
 
                 Console.WriteLine("Бот запущен. Нажмите клавишу 'A' для выхода, любую другую — для информации о боте.");
