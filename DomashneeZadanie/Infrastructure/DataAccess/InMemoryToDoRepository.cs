@@ -12,7 +12,7 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
             List<ToDoItem> result = new List<ToDoItem>();
             foreach (var item in _items)
             {
-                if (item.UserId == userId)
+                if (item.User.UserId == userId)
                 {
                     result.Add(item);
                 }
@@ -25,7 +25,7 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
             List<ToDoItem> result = new List<ToDoItem>();
             foreach (var item in _items)
             {
-                if (item.UserId == userId && item.State == ToDoItemState.Active)
+                if (item.User.UserId == userId && item.State == ToDoItemState.Active)
                 {
                     result.Add(item);
                 }
@@ -85,7 +85,7 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
         {
             foreach (var item in _items)
             {
-                if (item.UserId == userId && item.Name == name)
+                if (item.User.UserId == userId && item.Name == name)
                 {
                     return Task.FromResult(true);
                 }
@@ -98,7 +98,7 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
             int count = 0;
             foreach (var item in _items)
             {
-                if (item.UserId == userId && item.State == ToDoItemState.Active)
+                if (item.User.UserId == userId && item.State == ToDoItemState.Active)
                 {
                     count++;
                 }
