@@ -15,7 +15,7 @@ namespace DomashneeZadanie.Core.Entities
         public DateTime CreatedAt { get; set; }
         public ToDoItemState State { get; set; }
         public DateTime? StateChangedAt { get; set; }
-        public Guid UserId => User.UserId;
+
         public ToDoItem(ToDoUser user, string name)
         {
             Id = Guid.NewGuid();

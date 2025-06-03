@@ -1,11 +1,5 @@
 ﻿using DomashneeZadanie.Core.DataAccess;
 using DomashneeZadanie.Core.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace DomashneeZadanie.Infrastructure.DataAccess
 {
@@ -18,7 +12,7 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
             List<ToDoItem> result = new List<ToDoItem>();
             foreach (var item in _items)
             {
-                if (item.UserId == userId)
+                if (item.User.UserId == userId)
                 {
                     result.Add(item);
                 }
@@ -31,7 +25,7 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
             List<ToDoItem> result = new List<ToDoItem>();
             foreach (var item in _items)
             {
-                if (item.UserId == userId && item.State == ToDoItemState.Active)
+                if (item.User.UserId == userId && item.State == ToDoItemState.Active)
                 {
                     result.Add(item);
                 }
@@ -91,7 +85,7 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
         {
             foreach (var item in _items)
             {
-                if (item.UserId == userId && item.Name == name)
+                if (item.User.UserId == userId && item.Name == name)
                 {
                     return Task.FromResult(true);
                 }
@@ -104,7 +98,7 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
             int count = 0;
             foreach (var item in _items)
             {
-                if (item.UserId == userId && item.State == ToDoItemState.Active)
+                if (item.User.UserId == userId && item.State == ToDoItemState.Active)
                 {
                     count++;
                 }
