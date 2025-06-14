@@ -53,7 +53,7 @@ namespace DomashneeZadanie.Core.Services
                 throw new DuplicateTaskException(name);
             }
 
-            ToDoItem newItem = new ToDoItem(user, name)
+            ToDoItem newItem = new ToDoItem(user, name, deadline)
             {
                 Deadline = deadline
             };
