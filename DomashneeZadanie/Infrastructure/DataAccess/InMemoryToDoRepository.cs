@@ -92,7 +92,6 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
             }
             return Task.FromResult(false);
         }
-
         public Task<int>  CountActive(Guid userId, CancellationToken cancellationToken)
         {
             int count = 0;

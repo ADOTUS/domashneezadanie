@@ -32,7 +32,7 @@ namespace DomashneeZadanie.Core.Services
             return await _repository.GetActiveByUserId(userId, cancellationToken);
         }
         
-        public async Task <ToDoItem> Add(ToDoUser user, string name, CancellationToken cancellationToken)
+        public async Task <ToDoItem> Add(ToDoUser user, string name, DateTime deadline, CancellationToken cancellationToken)
         {
             int currentTaskCount = await _repository.CountActive(user.UserId, cancellationToken);
 
@@ -53,7 +53,10 @@ namespace DomashneeZadanie.Core.Services
                 throw new DuplicateTaskException(name);
             }
 
-            ToDoItem newItem = new ToDoItem(user, name);
+            ToDoItem newItem = new ToDoItem(user, name)
+            {
+                Deadline = deadline
+            };
             await _repository.Add(newItem, cancellationToken);
             return newItem;
         }
