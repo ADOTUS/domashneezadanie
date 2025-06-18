@@ -1,5 +1,6 @@
 ﻿using DomashneeZadanie.Core.DataAccess;
 using DomashneeZadanie.Core.Exceptions;
+using DomashneeZadanie.Core.Scenarios;
 using DomashneeZadanie.Core.Services;
 using DomashneeZadanie.Infrastructure.DataAccess;
 using DomashneeZadanie.TelegramBot;
@@ -9,6 +10,7 @@ using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using DomashneeZadanie.Scenarios;
 namespace DomashneZadanie
 {
     internal static class Program
@@ -31,6 +33,7 @@ namespace DomashneZadanie
             var userRepository = new FileUserRepository("UserData");
             var userService = new UserService(userRepository);
 
+
             string baseFolder = "ToDoData";
             IToDoRepository todoRepository = new FileToDoRepository(baseFolder);
 
@@ -40,11 +43,19 @@ namespace DomashneZadanie
 
             var botClient = new TelegramBotClient(token);
 
-            var handler = new UpdateHandler(userService, todoService, reportService, maxTasks, maxNameLength);
+            var scenarios = new List<IScenario>
+                {
+                    new AddTaskScenario(userService, todoService)
+                };
+
+            IScenarioContextRepository contextRepository = new InMemoryScenarioContextRepository();
+
+       
+            var handler = new UpdateHandler(botClient,userService, todoService, reportService, maxTasks, maxNameLength, scenarios, contextRepository);
 
             using var cts = new CancellationTokenSource();
 
-            await SetBotCommands(botClient, cancellationToken: cts.Token);
+            await SetBotCommands(botClient, cancellationToken: cts.Token); 
 
             handler.OnHandleUpdateStarted += HandleStarted; 
             handler.OnHandleUpdateCompleted += HandleCompleted;
