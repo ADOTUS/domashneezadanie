@@ -31,8 +31,32 @@ namespace DomashneeZadanie.Core.Services
         {
             return await _repository.GetActiveByUserId(userId, cancellationToken);
         }
-        
-        public async Task <ToDoItem> Add(ToDoUser user, string name, DateTime deadline, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<ToDoItem>> GetByUserIdAndList(Guid userId, Guid? listId, CancellationToken ct)
+        {
+            var allTasks = await _repository.GetAllByUserId(userId, ct);
+            var result = new List<ToDoItem>();
+
+            foreach (var task in allTasks)
+            {
+                if (listId == null)
+                {
+                    if (task.List == null)
+                    {
+                        result.Add(task);
+                    }
+                }
+                else
+                {
+                    if (task.List != null && task.List.Id == listId.Value)
+                    {
+                        result.Add(task);
+                    }
+                }
+            }
+
+            return result;
+        }
+        public async Task <ToDoItem> Add(ToDoUser user, string name, DateTime deadline, ToDoList? list, CancellationToken cancellationToken)
         {
             int currentTaskCount = await _repository.CountActive(user.UserId, cancellationToken);
 
@@ -53,10 +77,11 @@ namespace DomashneeZadanie.Core.Services
                 throw new DuplicateTaskException(name);
             }
 
-            ToDoItem newItem = new ToDoItem(user, name, deadline)
-            {
-                Deadline = deadline
-            };
+            ToDoItem newItem = new ToDoItem(user, name, deadline, list)
+            //{
+            //    Deadline = deadline
+            //}
+            ;
             await _repository.Add(newItem, cancellationToken);
             return newItem;
         }

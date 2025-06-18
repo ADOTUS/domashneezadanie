@@ -1,6 +1,7 @@
 ﻿using DomashneeZadanie.Core.Entities;
 using DomashneeZadanie.Core.Scenarios;
 using DomashneeZadanie.Core.Services;
+using System.Collections.Generic;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 
@@ -100,7 +101,7 @@ namespace DomashneeZadanie.Scenarios
 
                         try
                         {
-                            await _todoService.Add(user, taskName, deadline, ct);
+                            await _todoService.Add(user, taskName, deadline,null,  ct);
 
                             await bot.SendMessage(chatId,
                                 $"Задача \"{taskName}\" успешно добавлена с дедлайном {deadline:dd.MM.yyyy}.", cancellationToken: ct);

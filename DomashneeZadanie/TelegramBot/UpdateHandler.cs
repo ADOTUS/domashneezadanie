@@ -1,9 +1,7 @@
-﻿using DomashneeZadanie.Core.Entities;
+﻿using DomashneeZadanie.Core.Dto;
+using DomashneeZadanie.Core.Entities;
 using DomashneeZadanie.Core.Scenarios;
 using DomashneeZadanie.Core.Services;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
@@ -22,6 +20,7 @@ namespace DomashneeZadanie.TelegramBot
         private readonly IToDoService _todoService;
         public static bool sucscess = false; 
         private readonly IToDoReportService _reportService;
+        private readonly IToDoListService _toDoListService;
 
         private readonly int _maxTasks;
         private readonly int _maxNameLength;
@@ -33,6 +32,7 @@ namespace DomashneeZadanie.TelegramBot
             IUserService userService,
             IToDoService todoService,
             IToDoReportService reportService,
+            IToDoListService toDoListService,
             int maxTasks,
             int maxNameLength,
             IEnumerable<IScenario> scenarios,
@@ -43,6 +43,7 @@ namespace DomashneeZadanie.TelegramBot
             _userService = userService;
             _todoService = todoService;
             _reportService = reportService;
+            _toDoListService = toDoListService;
             _maxTasks = maxTasks;
             _maxNameLength = maxNameLength;
             _scenarios = scenarios;
@@ -82,6 +83,11 @@ namespace DomashneeZadanie.TelegramBot
         }
         public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
         {
+            if (update.CallbackQuery != null)
+            {
+                await OnCallbackQuery(update, update.CallbackQuery, cancellationToken);
+            }
+
             if (update.Message == null || update.Message.From == null || string.IsNullOrWhiteSpace(update.Message.Text) || update.Message.Chat == null)
                 return;
 
@@ -170,11 +176,6 @@ namespace DomashneeZadanie.TelegramBot
                             break;
                         }
 
-                    case "/showall":
-                        {
-                            await SwShowAll(botClient, update, telegramUserId, cancellationToken);
-                            break;
-                        }
                     case "/report":
                         {
                             await SwReport(botClient, update, telegramUserId, cancellationToken);
@@ -259,6 +260,7 @@ namespace DomashneeZadanie.TelegramBot
         {
             if (update.Message?.Chat == null)
                 return;
+
             var chat = update.Message.Chat;
             var user = await _userService.GetUser(telegramUserId, cancellationToken);
             if (user == null)
@@ -268,48 +270,42 @@ namespace DomashneeZadanie.TelegramBot
                 return;
             }
 
-            var tasks = await _todoService.GetActiveByUserId(user.UserId, cancellationToken);
-            if (tasks.Count == 0)
+            var lists = await _toDoListService.GetUserLists(user.UserId, cancellationToken);
+
+            var inlineButtons = new List<List<InlineKeyboardButton>>();
+
+            var noListCallback = new ToDoListCallbackDto();
+            noListCallback.Action = "show";
+            noListCallback.ToDoListId = null;
+            string noListCallbackData = noListCallback.ToString();
+
+            var noListButton = InlineKeyboardButton.WithCallbackData("📌 Без списка", noListCallbackData);
+            inlineButtons.Add(new List<InlineKeyboardButton> { noListButton });
+
+            for (int i = 0; i < lists.Count; i++)
             {
-                await botClient.SendMessage(chat, "Активных задач нет.",
-                        replyMarkup: GetKeyboard(true), cancellationToken: cancellationToken);
-                return;
+                var list = lists[i];
+                var cb = new ToDoListCallbackDto();
+                cb.Action = "show";
+                cb.ToDoListId = list.Id;
+                string cbData = cb.ToString();
+
+                var button = InlineKeyboardButton.WithCallbackData(list.Name, cbData);
+                inlineButtons.Add(new List<InlineKeyboardButton> { button });
             }
 
-            for (int i = 0; i < tasks.Count; i++)
-            {
-                var task = tasks[i];
-                string msg = $"{i + 1}. {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - '{task.Id}'";
-                await botClient.SendMessage(chat, msg,
-                        replyMarkup: GetKeyboard(true), cancellationToken: cancellationToken);
-            }
-        }
-        private async Task SwShowAll(ITelegramBotClient botClient, Update update, long telegramUserId, CancellationToken cancellationToken)
-        {
-            if (update.Message?.Chat == null)
-                return;
-            var chat = update.Message.Chat;
-            ToDoUser? showUser = await _userService.GetUser(telegramUserId, cancellationToken);
-            if (showUser == null)
-            {
-                await botClient.SendMessage(update.Message.Chat, "Вы не зарегистрированы. Напишите /start.", cancellationToken: cancellationToken);
-                return;
-            }
+            var addButton = InlineKeyboardButton.WithCallbackData("🆕 Добавить", "addlist");
+            inlineButtons.Add(new List<InlineKeyboardButton> { addButton });
+             
+            var deleteButton = InlineKeyboardButton.WithCallbackData("❌ Удалить", "deletelist");
+            inlineButtons.Add(new List<InlineKeyboardButton> { deleteButton });
 
-            var allTasks = await _todoService.GetAllByUserId(showUser.UserId, cancellationToken);
-            if (allTasks.Count == 0)
-            {
-                await botClient.SendMessage(update.Message.Chat, "Задачи не найдены.", cancellationToken: cancellationToken);
-                return;
-            }
+            var inlineKeyboard = new InlineKeyboardMarkup(inlineButtons);
 
-            for (int i = 0; i < allTasks.Count; i++)
-            {
-                ToDoItem task = allTasks[i];
-                string message = $"({task.State}) {task.Name} - {task.CreatedAt:dd.MM.yyyy HH:mm:ss} - '{task.Id}'";
-                await botClient.SendMessage(update.Message.Chat, message, cancellationToken: cancellationToken);
-            }
-
+            await botClient.SendMessage(chat.Id,
+                "Выберите список:",
+                replyMarkup: inlineKeyboard,
+                cancellationToken: cancellationToken);
         }
         private async Task SwHelp(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
         {
@@ -407,6 +403,70 @@ namespace DomashneeZadanie.TelegramBot
             {
                 ResizeKeyboard = true
             };
+        }
+        private async Task OnCallbackQuery(Update update, CallbackQuery callbackQuery, CancellationToken cancellationToken)
+        {
+            if (callbackQuery.From == null)
+                return;
+
+            long telegramUserId = callbackQuery.From.Id;
+
+            var user = await _userService.GetUser(telegramUserId, cancellationToken);
+            if (user == null)
+            {
+                return;
+            }
+            var callbackDto = CallbackDto.FromString(callbackQuery.Data ?? string.Empty);
+
+            switch (callbackDto.Action)
+            {
+                case "show":
+                    {
+                        var listCallbackDto = ToDoListCallbackDto.FromString(callbackQuery.Data ?? string.Empty);
+
+                        IReadOnlyList<ToDoItem> tasks;
+
+                        if (listCallbackDto.ToDoListId == null)
+                        {
+                            tasks = await _todoService.GetByUserIdAndList(user.UserId, null, cancellationToken);
+
+                        }
+                        else
+                        {
+                            tasks = await _todoService.GetByUserIdAndList(user.UserId, listCallbackDto.ToDoListId.Value, cancellationToken);
+                        }
+
+                        string message;
+
+                        if (tasks.Count == 0)
+                        {
+                            message = "Задач в этом списке нет.";
+                        }
+                        else
+                        {
+                            message = "Задачи в выбранном списке:\n";
+                            for (int i = 0; i < tasks.Count; i++)
+                            {
+                                var t = tasks[i];
+                                message += $"{i + 1}. {t.Name}\n";
+                            }
+                        }
+
+                        await _botClient.AnswerCallbackQuery(callbackQuery.Id, cancellationToken: cancellationToken);
+
+                        await _botClient.SendMessage(callbackQuery.Message.Chat.Id,
+                            message,
+                            cancellationToken: cancellationToken);
+
+                        break;
+                    }
+
+                default:
+                    {
+                        await _botClient.AnswerCallbackQuery(callbackQuery.Id, "Неизвестная команда.", cancellationToken: cancellationToken);
+                        break;
+                    }
+            }
         }
     }
 

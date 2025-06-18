@@ -9,6 +9,7 @@ namespace DomashneeZadanie.Core.Scenarios
     public enum ScenarioType
     {
         None,
-        AddTask
+        AddTask,
+        AddList
     }
 }
