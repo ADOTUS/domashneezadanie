@@ -37,6 +37,9 @@ namespace DomashneeZadanie.Core.Scenarios
             Update update,
             CancellationToken ct)
         {
+            if (update.Message == null)
+                return ScenarioResult.Completed;
+
             long chatId = update.Message.Chat.Id;
 
             string? currentStep = context.CurrentStep;
@@ -53,10 +56,13 @@ namespace DomashneeZadanie.Core.Scenarios
                 }
 
                 ToDoUser? user = await _userService.GetUser(telegramUserId, ct);
-                if (user == null)
+                if (user == null && telegramUserName != null)
                 {
                     user = await _userService.RegisterUser(telegramUserId, telegramUserName, ct);
+                  
                 }
+                if (user == null)
+                    return ScenarioResult.Completed;
 
                 context.Data["User"] = user;
                 context.CurrentStep = "Name";

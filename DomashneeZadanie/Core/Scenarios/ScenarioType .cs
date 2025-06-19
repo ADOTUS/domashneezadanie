@@ -10,6 +10,7 @@ namespace DomashneeZadanie.Core.Scenarios
     {
         None,
         AddTask,
-        AddList
+        AddList, 
+        DeleteList
     }
 }

@@ -12,16 +12,31 @@ namespace DomashneeZadanie.Core.Services
     public class ToDoService : IToDoService
     {
         private readonly IToDoRepository _repository;
+        private readonly IToDoListRepository _listRepository;
         private readonly int _maxTasks;
         private readonly int _maxNameLength;
 
-        public ToDoService(IToDoRepository repository, int maxTasks, int maxNameLength)
+        public ToDoService(IToDoRepository repository, IToDoListRepository listRepository, int maxTasks, int maxNameLength)
         {
             _repository = repository;
+            _listRepository = listRepository;
             _maxTasks = maxTasks;
             _maxNameLength = maxNameLength;
         }
+        public async Task<ToDoList?> GetListByName(ToDoUser user, string name, CancellationToken ct)
+        {
+            var lists = await _listRepository.GetByUserId(user.UserId, ct);
 
+            foreach (var list in lists)
+            {
+                if (list.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return list;
+                }
+            }
+
+            return null;
+        }
         public async Task <IReadOnlyList<ToDoItem>> GetAllByUserId(Guid userId, CancellationToken cancellationToken)
         {
             return await _repository.GetAllByUserId(userId, cancellationToken);
