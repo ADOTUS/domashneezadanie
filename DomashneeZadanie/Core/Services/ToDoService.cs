@@ -12,16 +12,31 @@ namespace DomashneeZadanie.Core.Services
     public class ToDoService : IToDoService
     {
         private readonly IToDoRepository _repository;
+        private readonly IToDoListRepository _listRepository;
         private readonly int _maxTasks;
         private readonly int _maxNameLength;
 
-        public ToDoService(IToDoRepository repository, int maxTasks, int maxNameLength)
+        public ToDoService(IToDoRepository repository, IToDoListRepository listRepository, int maxTasks, int maxNameLength)
         {
             _repository = repository;
+            _listRepository = listRepository;
             _maxTasks = maxTasks;
             _maxNameLength = maxNameLength;
         }
+        public async Task<ToDoList?> GetListByName(ToDoUser user, string name, CancellationToken ct)
+        {
+            var lists = await _listRepository.GetByUserId(user.UserId, ct);
 
+            foreach (var list in lists)
+            {
+                if (list.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return list;
+                }
+            }
+
+            return null;
+        }
         public async Task <IReadOnlyList<ToDoItem>> GetAllByUserId(Guid userId, CancellationToken cancellationToken)
         {
             return await _repository.GetAllByUserId(userId, cancellationToken);
@@ -31,8 +46,32 @@ namespace DomashneeZadanie.Core.Services
         {
             return await _repository.GetActiveByUserId(userId, cancellationToken);
         }
-        
-        public async Task <ToDoItem> Add(ToDoUser user, string name, DateTime deadline, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<ToDoItem>> GetByUserIdAndList(Guid userId, Guid? listId, CancellationToken ct)
+        {
+            var allTasks = await _repository.GetAllByUserId(userId, ct);
+            var result = new List<ToDoItem>();
+
+            foreach (var task in allTasks)
+            {
+                if (listId == null)
+                {
+                    if (task.List == null)
+                    {
+                        result.Add(task);
+                    }
+                }
+                else
+                {
+                    if (task.List != null && task.List.Id == listId.Value)
+                    {
+                        result.Add(task);
+                    }
+                }
+            }
+
+            return result;
+        }
+        public async Task <ToDoItem> Add(ToDoUser user, string name, DateTime deadline, ToDoList? list, CancellationToken cancellationToken)
         {
             int currentTaskCount = await _repository.CountActive(user.UserId, cancellationToken);
 
@@ -53,10 +92,7 @@ namespace DomashneeZadanie.Core.Services
                 throw new DuplicateTaskException(name);
             }
 
-            ToDoItem newItem = new ToDoItem(user, name, deadline)
-            {
-                Deadline = deadline
-            };
+            ToDoItem newItem = new ToDoItem(user, name, deadline, list);
             await _repository.Add(newItem, cancellationToken);
             return newItem;
         }

@@ -2,10 +2,7 @@
 using DomashneeZadanie.Core.Exceptions;
 using DomashneeZadanie.Core.Scenarios;
 using DomashneeZadanie.Core.Services;
-using DomashneeZadanie.Infrastructure.DataAccess;
 using DomashneeZadanie.TelegramBot;
-using System.IO;
-using System.Threading;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
@@ -37,21 +34,25 @@ namespace DomashneZadanie
             string baseFolder = "ToDoData";
             IToDoRepository todoRepository = new FileToDoRepository(baseFolder);
 
-            var todoService = new ToDoService(todoRepository, maxTasks, maxNameLength);
-
             var reportService = new ToDoReportService(todoRepository);
+
+            IToDoListRepository listRepository = new FileToDoListRepository("ListData");
+            var todoService = new ToDoService(todoRepository, listRepository, maxTasks, maxNameLength);
+            IToDoListService toDoListService = new ToDoListService(listRepository);
 
             var botClient = new TelegramBotClient(token);
 
             var scenarios = new List<IScenario>
                 {
-                    new AddTaskScenario(userService, todoService)
+                    new AddTaskScenario(userService, todoService, toDoListService),
+                    new AddListScenario(userService, toDoListService),
+                    new DeleteListScenario(userService, toDoListService, todoService)
                 };
 
             IScenarioContextRepository contextRepository = new InMemoryScenarioContextRepository();
 
        
-            var handler = new UpdateHandler(botClient,userService, todoService, reportService, maxTasks, maxNameLength, scenarios, contextRepository);
+            var handler = new UpdateHandler(botClient,userService, todoService, reportService, toDoListService, maxTasks, maxNameLength, scenarios, contextRepository);
 
             using var cts = new CancellationTokenSource();
 
@@ -64,9 +65,9 @@ namespace DomashneZadanie
             {
                 var receiverOptions = new ReceiverOptions
                 {
-                    AllowedUpdates = [UpdateType.Message],
+                    AllowedUpdates = new[] { UpdateType.Message, UpdateType.CallbackQuery },
                     DropPendingUpdates = true
-                }; 
+                };
                 botClient.StartReceiving(updateHandler: handler, receiverOptions: receiverOptions, cancellationToken: cts.Token);
 
                 Console.WriteLine("Бот запущен. Нажмите клавишу 'A' для выхода, любую другую — для информации о боте.");
@@ -150,11 +151,10 @@ namespace DomashneZadanie
             var commands = new List<BotCommand>
                  {
                      new() { Command = "start",     Description = "Регистрация пользователя" },
-                     new() { Command = "add",       Description = "Добавить задачу (/add TaskName)" },
+                     new() { Command = "addtask",   Description = "Добавить задачу (/addtask TaskName)" },
                      new() { Command = "remove",    Description = "Удалить задачу (/remove TaskId)" },
                      new() { Command = "complete",  Description = "Завершить задачу (/complete TaskId)" },
                      new() { Command = "show",      Description = "Показать активные задачи" },
-                     new() { Command = "showall",   Description = "Показать все задачи" },
                      new() { Command = "report",    Description = "Статистика задач" },
                      new() { Command = "find",      Description = "Поиск задач (/find keyword)" },
                      new() { Command = "help",      Description = "Список команд" },
