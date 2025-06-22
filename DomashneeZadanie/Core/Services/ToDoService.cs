@@ -92,11 +92,7 @@ namespace DomashneeZadanie.Core.Services
                 throw new DuplicateTaskException(name);
             }
 
-            ToDoItem newItem = new ToDoItem(user, name, deadline, list)
-            //{
-            //    Deadline = deadline
-            //}
-            ;
+            ToDoItem newItem = new ToDoItem(user, name, deadline, list);
             await _repository.Add(newItem, cancellationToken);
             return newItem;
         }

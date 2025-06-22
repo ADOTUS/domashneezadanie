@@ -1,4 +1,5 @@
-﻿using DomashneeZadanie.Core.Entities;
+﻿using DomashneeZadanie.Core.Dto;
+using DomashneeZadanie.Core.Entities;
 using DomashneeZadanie.Core.Scenarios;
 using DomashneeZadanie.Core.Services;
 using System.Collections.Generic;
@@ -33,17 +34,19 @@ namespace DomashneeZadanie.Scenarios
             CancellationToken ct)
         {
             //long? chatId = update.Message?.Chat.Id ?? update.CallbackQuery?.Message.Chat.Id;
+
             long? chatId = null;
             if (update.Message != null && update.Message.Chat != null)
             {
                 chatId = update.Message.Chat.Id;
             }
-            else if (update.CallbackQuery != null && update.CallbackQuery.Message != null) 
+            else if (update.CallbackQuery != null && update.CallbackQuery.Message != null)
             {
                 chatId = update.CallbackQuery.Message.Chat.Id;
             }
 
             //long? userIdNullable = update.Message?.From.Id ?? update.CallbackQuery?.From.Id;
+
             long? userIdNullable = null;
 
             if (update.Message != null && update.Message.From != null)
@@ -56,6 +59,7 @@ namespace DomashneeZadanie.Scenarios
             }
 
             //long? chatIdNullable = update.Message?.Chat.Id ?? update.CallbackQuery?.Message.Chat.Id;
+
             long? chatIdNullable = null;
             if (update.Message != null && update.Message.Chat != null)
             {
@@ -69,18 +73,23 @@ namespace DomashneeZadanie.Scenarios
 
             if (chatIdNullable == null || userIdNullable == null)
             {
-                return ScenarioResult.Completed; 
+                return ScenarioResult.Completed;
             }
 
             long userId = userIdNullable.Value;
 
             if (chatId == 0 || userId == 0)
             {
-                return ScenarioResult.Completed; 
+                return ScenarioResult.Completed;
             }
 
             if (context.Data == null)
                 context.Data = new Dictionary<string, object>();
+
+            if (chatId == null)
+            {
+                return ScenarioResult.Completed;
+            }
 
             switch (context.CurrentStep)
             {
@@ -89,20 +98,12 @@ namespace DomashneeZadanie.Scenarios
                         var user = await _userService.GetUser(userId, ct);
                         if (user == null)
                         {
-                            if (chatId == null)
-                            {
-                                return ScenarioResult.Completed;
-                            }
                             await bot.SendMessage(chatId, "Вы не зарегистрированы. Пожалуйста, зарегистрируйтесь.", cancellationToken: ct);
                             return ScenarioResult.Completed;
                         }
 
                         context.Data["User"] = user;
 
-                        if (chatId == null)
-                        {
-                            return ScenarioResult.Completed;
-                        }
                         await bot.SendMessage(chatId, "Введите название задачи:", cancellationToken: ct);
                         context.CurrentStep = "Name";
                         return ScenarioResult.Transition;
@@ -113,20 +114,12 @@ namespace DomashneeZadanie.Scenarios
                         var taskName = update.Message?.Text?.Trim();
                         if (string.IsNullOrWhiteSpace(taskName))
                         {
-                            if (chatId == null)
-                            {
-                                return ScenarioResult.Completed;
-                            }
                             await bot.SendMessage(chatId, "Название задачи не может быть пустым. Введите снова:", cancellationToken: ct);
                             return ScenarioResult.Transition;
                         }
 
                         context.Data["TaskName"] = taskName;
 
-                        if (chatId == null)
-                        {
-                            return ScenarioResult.Completed;
-                        }
                         await bot.SendMessage(chatId, "Введите дедлайн задачи в формате dd.MM.yyyy:", cancellationToken: ct);
                         context.CurrentStep = "Deadline";
                         return ScenarioResult.Transition;
@@ -138,11 +131,7 @@ namespace DomashneeZadanie.Scenarios
                         if (!DateTime.TryParseExact(deadlineText, "dd.MM.yyyy", null,
                                 System.Globalization.DateTimeStyles.None, out var deadline))
                         {
-                            if (chatId == null)
-                            {
-                                return ScenarioResult.Completed;
-                            }
-                            await bot.SendMessage(chatId,"Некорректный формат даты. Пожалуйста, введите в формате dd.MM.yyyy:", cancellationToken: ct);
+                            await bot.SendMessage(chatId, "Некорректный формат даты. Пожалуйста, введите в формате dd.MM.yyyy:", cancellationToken: ct);
                             return ScenarioResult.Transition;
                         }
 
@@ -153,25 +142,27 @@ namespace DomashneeZadanie.Scenarios
 
                         var buttons = new List<List<InlineKeyboardButton>>();
 
+                        var noneDto = new ToDoListCallbackDto("addtask", null);
+
                         buttons.Add(new List<InlineKeyboardButton>
-                    {
-                        InlineKeyboardButton.WithCallbackData("📌 Без списка", $"addtask|list|none")
-                    });
+                                        {
+                                            InlineKeyboardButton.WithCallbackData("📌 Без списка", noneDto.ToString())
+                                        }
+                                    );
 
                         foreach (var list in lists)
                         {
+                            var dto = new ToDoListCallbackDto("addtask", list.Id);
+
                             buttons.Add(new List<InlineKeyboardButton>
-                        {
-                            InlineKeyboardButton.WithCallbackData(list.Name, $"addtask|list|{list.Id}")
-                        });
+                                             {
+                                                 InlineKeyboardButton.WithCallbackData(list.Name, dto.ToString())
+                                             }
+                                        );
                         }
 
                         var keyboard = new InlineKeyboardMarkup(buttons);
 
-                        if (chatId == null)
-                        {
-                            return ScenarioResult.Completed;
-                        }
                         await bot.SendMessage(chatId, "Выберите список для задачи:", replyMarkup: keyboard, cancellationToken: ct);
 
                         context.CurrentStep = "ChooseList";
@@ -183,95 +174,64 @@ namespace DomashneeZadanie.Scenarios
                     {
                         if (update.CallbackQuery == null)
                         {
-                            if (chatId == null)
-                            {
-                                return ScenarioResult.Completed;
-                            }
                             await bot.SendMessage(chatId, "Пожалуйста, выберите список, нажав на кнопку.", cancellationToken: ct);
                             return ScenarioResult.Transition;
                         }
 
                         var data = update.CallbackQuery.Data;
 
-                        if (string.IsNullOrWhiteSpace(data) || !data.StartsWith("addtask|list|"))
+                        if (string.IsNullOrWhiteSpace(data))
                         {
-                            if (chatId == null)
-                            {
-                                return ScenarioResult.Completed;
-                            }
                             await bot.SendMessage(chatId, "Неверные данные выбора. Попробуйте снова.", cancellationToken: ct);
                             return ScenarioResult.Transition;
                         }
+
+                        CallbackDto baseDto = CallbackDto.FromString(data);
+                        if (baseDto.Action != "addtask")
+                        {
+                            await bot.SendMessage(chatId, "Неверная кнопка. Попробуйте снова.", cancellationToken: ct);
+                            return ScenarioResult.Transition;
+                        }
+
+                        ToDoListCallbackDto dto = ToDoListCallbackDto.FromString(data);
 
                         var user = (ToDoUser)context.Data["User"];
                         var taskName = (string)context.Data["TaskName"];
                         var deadline = (DateTime)context.Data["Deadline"];
 
-                        string listIdStr = data.Substring("addtask|list|".Length);
-
                         ToDoList? list = null;
 
-                        if (listIdStr != "none")
+                        if (dto.ToDoListId.HasValue)
                         {
-                            if (Guid.TryParse(listIdStr, out var listIdGuid))
+                            list = await _toDoListService.Get(dto.ToDoListId.Value, ct);
+                            if (list == null)
                             {
-                                list = await _toDoListService.Get(listIdGuid, ct);
-                                if (list == null)
-                                {
-                                    if (chatId == null)
-                                    {
-                                        return ScenarioResult.Completed;
-                                    }
-                                    await bot.SendMessage(chatId, "Выбранный список не найден. Попробуйте заново.", cancellationToken: ct);
-                                    return ScenarioResult.Transition;
-                                }
-                            }
-                            else
-                            {
-                                if (chatId == null)
-                                {
-                                    return ScenarioResult.Completed;
-                                }
-                                await bot.SendMessage(chatId, "Некорректный идентификатор списка. Попробуйте заново.", cancellationToken: ct);
+                                await bot.SendMessage(chatId, "Выбранный список не найден. Попробуйте заново.", cancellationToken: ct);
                                 return ScenarioResult.Transition;
                             }
                         }
 
                         try
                         {
-                            await _todoService.Add(user, taskName, deadline, list, ct); 
-                            
-                            if (chatId == null)
-                            {
-                                return ScenarioResult.Completed;
-                            }
+                            await _todoService.Add(user, taskName, deadline, list, ct);
                             await bot.SendMessage(chatId,
                                 $"Задача \"{taskName}\" успешно добавлена в список \"{list?.Name ?? "Без списка"}\" с дедлайном {deadline:dd.MM.yyyy}.",
                                 cancellationToken: ct);
                         }
                         catch (Exception ex)
                         {
-                            if (chatId == null)
-                            {
-                                return ScenarioResult.Completed;
-                            }
                             await bot.SendMessage(chatId, $"Ошибка при добавлении задачи: {ex.Message}", cancellationToken: ct);
                         }
 
                         return ScenarioResult.Completed;
                     }
-
                 default:
                     {
-                        if (chatId == null)
-                        {
-                            return ScenarioResult.Completed;
-                        }
                         await bot.SendMessage(chatId, "Неизвестный шаг сценария. Попробуйте снова.", cancellationToken: ct);
                         return ScenarioResult.Completed;
                     }
             }
         }
     }
-   
+
 }

@@ -8,8 +8,7 @@ namespace DomashneeZadanie.Core.Dto
 {
     public class ToDoListCallbackDto : CallbackDto
     {
-        public Guid? ToDoListId { get; set; }
-         
+        public Guid? ToDoListId { get; }
 
         public ToDoListCallbackDto(string action, Guid? toDoListId = null)
             : base(action)
@@ -23,11 +22,10 @@ namespace DomashneeZadanie.Core.Dto
                 return new ToDoListCallbackDto(string.Empty, null);
 
             string[] parts = input.Split('|');
+            string action = parts[0];
 
-            string action = parts.Length > 0 ? parts[0] : string.Empty;
             Guid? toDoListId = null;
-
-            if (parts.Length > 1 && Guid.TryParse(parts[1], out var parsedGuid))
+            if (parts.Length > 1 && parts[1] != "none" && Guid.TryParse(parts[1], out var parsedGuid))
                 toDoListId = parsedGuid;
 
             return new ToDoListCallbackDto(action, toDoListId);
@@ -35,7 +33,7 @@ namespace DomashneeZadanie.Core.Dto
 
         public override string ToString()
         {
-            string? idPart = ToDoListId.HasValue ? ToDoListId.ToString() : string.Empty;
+            string idPart = ToDoListId.HasValue ? ToDoListId.ToString() : "none";
             return $"{Action}|{idPart}";
         }
     }

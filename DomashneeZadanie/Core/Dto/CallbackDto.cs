@@ -9,7 +9,7 @@ namespace DomashneeZadanie.Core.Dto
     public class CallbackDto
     {
         public string Action { get; set; }
- 
+
         public CallbackDto(string action)
         {
             Action = action;
@@ -35,10 +35,6 @@ namespace DomashneeZadanie.Core.Dto
 
         public override string ToString()
         {
-            if (Action == null)
-            {
-                return string.Empty;
-            }
             return Action;
         }
     }

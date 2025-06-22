@@ -21,15 +21,7 @@ namespace DomashneeZadanie.Core.Scenarios
             _todoListService = todoListService;
         }
 
-        public bool CanHandle(ScenarioType scenario)
-        {
-            if (scenario == ScenarioType.AddList)
-            {
-                return true;
-            }
-
-            return false;
-        }
+        public bool CanHandle(ScenarioType scenario) => scenario == ScenarioType.AddList;
 
         public async Task<ScenarioResult> HandleMessageAsync(
             ITelegramBotClient bot,
@@ -56,14 +48,12 @@ namespace DomashneeZadanie.Core.Scenarios
                 }
 
                 ToDoUser? user = await _userService.GetUser(telegramUserId, ct);
-                if (user == null && telegramUserName != null)
-                {
-                    user = await _userService.RegisterUser(telegramUserId, telegramUserName, ct);
-                  
-                }
                 if (user == null)
+                {
+                    await bot.SendMessage(chatId, "Вы не зарегистрированы. Напишите /start.", cancellationToken: ct);
                     return ScenarioResult.Completed;
-
+                }
+                
                 context.Data["User"] = user;
                 context.CurrentStep = "Name";
 
