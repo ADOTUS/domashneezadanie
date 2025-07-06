@@ -111,11 +111,6 @@ namespace DomashneeZadanie.TelegramBot
             var chatId = update.Message.Chat.Id;
             var user = await _userService.GetUser(userId, ct);
 
-            if (user == null)
-            {
-                await _botClient.SendMessage(chatId, "Вы не зарегистрированы. Напишите /start.", cancellationToken: ct);
-                return;
-            }
             if (command != "/start" && user == null)
             {
                 await _botClient.SendMessage(chatId, "Вы не зарегистрированы. Напишите /start.", cancellationToken: ct);
@@ -132,7 +127,14 @@ namespace DomashneeZadanie.TelegramBot
                     break;
 
                 case "/show":
-                    await SwShow(chatId, user, ct);
+                    if (user == null)
+                    {
+                        await _botClient.SendMessage(chatId, "Вы не зарегистрированы. Напишите /start.", cancellationToken: ct);
+                    }
+                    else
+                    {
+                        await SwShow(chatId, user, ct);
+                    }
                     break;
 
                 case "/addtask":
@@ -144,7 +146,15 @@ namespace DomashneeZadanie.TelegramBot
                     break;
 
                 case "/report":
-                    await SwReport(chatId, user, ct);
+                    
+                    if (user == null)
+                    {
+                        await _botClient.SendMessage(chatId, "Вы не зарегистрированы. Напишите /start.", cancellationToken: ct);
+                    }
+                    else
+                    {
+                        await SwReport(chatId, user, ct);
+                    }
                     break;
 
                 case "/help":
@@ -157,14 +167,6 @@ namespace DomashneeZadanie.TelegramBot
 
                 case string c when c.StartsWith("/find"):
                     await SwFind(_botClient, update, user, command, ct);
-                    break;
-
-                case string c when c.StartsWith("/complete"):
-                    await SwComplete(_botClient, update, user, command, ct);
-                    break;
-
-                case string s when s.StartsWith("/remove"):
-                    await SwRemove(_botClient, update, user, command, ct);
                     break;
 
                 default:
@@ -205,95 +207,7 @@ namespace DomashneeZadanie.TelegramBot
 
             await botClient.SendMessage(chat, infoText, cancellationToken: cancellationToken);
         }
-        private async Task SwRemove(ITelegramBotClient botClient, Update update, ToDoUser user, string messageText, CancellationToken ct)
-        {
-            var chat = update.Message?.Chat;
-            if (chat == null)
-                return;
-
-            if (user == null)
-            {
-                await botClient.SendMessage(chat, "Вы не зарегистрированы. Напишите /start.", cancellationToken: ct);
-                return;
-            }
-
-            string input = messageText.Substring("/remove".Length).Trim();
-            int index;
-
-            if (!int.TryParse(input, out index))
-            {
-                await botClient.SendMessage(chat, "Введите номер задачи, например: /remove 1", cancellationToken: ct);
-                return;
-            }
-
-            var activeTasks = await _todoService.GetActiveByUserId(user.UserId, ct);
-            int count = activeTasks.Count;
-
-            if (index < 1 || index > count)
-            {
-                await botClient.SendMessage(chat, $"Некорректный номер задачи. Введите от 1 до {count}.", cancellationToken: ct);
-                return;
-            }
-
-            ToDoItem? taskToRemove = null;
-            int current = 1;
-
-            foreach (var task in activeTasks)
-            {
-                if (current == index)
-                {
-                    taskToRemove = task;
-                    break;
-                }
-                current++;
-            }
-
-            if (taskToRemove == null)
-            {
-                await botClient.SendMessage(chat, "Задача не найдена.", cancellationToken: ct);
-                return;
-            }
-
-            await _todoService.Delete(taskToRemove.Id, ct);
-            await botClient.SendMessage(chat, $"Задача '{taskToRemove.Name}' удалена.", cancellationToken: ct);
-        }
-        private async Task SwComplete(ITelegramBotClient botClient, Update update, ToDoUser user, string messageText, CancellationToken ct)
-        {
-            var chat = update.Message?.Chat;
-            if (chat == null)
-                return;
-
-
-            string idText = messageText.Substring("/complete".Length).Trim();
-            Guid taskId;
-
-            if (!Guid.TryParse(idText, out taskId))
-            {
-                await botClient.SendMessage(chat, "Некорректный ID задачи. Используйте /show, чтобы увидеть список и ID.", cancellationToken: ct);
-                return;
-            }
-
-            var activeTasks = await _todoService.GetActiveByUserId(user.UserId, ct);
-            ToDoItem? foundTask = null;
-
-            foreach (var task in activeTasks)
-            {
-                if (task.Id == taskId)
-                {
-                    foundTask = task;
-                    break;
-                }
-            }
-
-            if (foundTask == null)
-            {
-                await botClient.SendMessage(chat, $"Задача с ID {taskId} не найдена среди активных.", cancellationToken: ct);
-                return;
-            }
-
-            await _todoService.MarkCompleted(foundTask.Id, ct);
-            await botClient.SendMessage(chat, $"Задача \"{foundTask.Name}\" помечена как выполненная.", cancellationToken: ct);
-        }
+ 
         private async Task SwReport(long chatId, ToDoUser user, CancellationToken ct)
         {
            var stats = await _reportService.GetUserStats(user.UserId, ct);
@@ -390,17 +304,23 @@ namespace DomashneeZadanie.TelegramBot
                 return;
             }
 
-            string message = toDoListId.HasValue
-                ? $"Задачи в списке:\n"
-                : "Задачи без списка:\n";
+            string message = "Активные задачи:";
+
+            var buttons = new List<List<InlineKeyboardButton>>();
 
             foreach (var task in tasks)
             {
                 bool completed = task.State == ToDoItemState.Completed;
-                message += $"- {(completed ? "✅" : "⬜")} - {task.Name} - {task.Id}\n";
+                var dto = new ToDoItemCallbackDto("showtask", task.Id);
+                buttons.Add(new List<InlineKeyboardButton>
+                {
+                    InlineKeyboardButton.WithCallbackData($"{(completed ? "✅" : "⬜")} {task.Name}", dto.ToString())
+                });
             }
 
-            await _botClient.SendMessage(chatId, message, cancellationToken: ct);
+            var keyboard = new InlineKeyboardMarkup(buttons);
+
+            await _botClient.SendMessage(chatId, message, replyMarkup: keyboard, cancellationToken: ct);
         }
         private async Task HandleCallbackQuery(CallbackQuery callback, CancellationToken ct)
         {
@@ -514,6 +434,62 @@ namespace DomashneeZadanie.TelegramBot
                 {
                     await _botClient.SendMessage(callback.Message.Chat.Id, "Нет активного сценария добавления задачи.", cancellationToken: ct);
                 }
+            }
+            else if (baseDto.Action == "showtask")
+            {
+                var dto = ToDoItemCallbackDto.FromString(callback.Data ?? "");
+                if (dto.ToDoItemId.HasValue)
+                {
+                    var task = await _todoService.Get(dto.ToDoItemId.Value, ct);
+                    if (task == null)
+                    {
+                        await _botClient.SendMessage(callback.Message.Chat.Id, "Задача не найдена.", cancellationToken: ct);
+                        return;
+                    }
+
+                    var info = $"Задача: {task.Name}\n" +
+                               $"Статус: {(task.State == ToDoItemState.Completed ? "✅ Выполнена" : "⬜ Активна")}\n" +
+                               $"Создана: {task.CreatedAt:dd.MM.yyyy HH:mm}\n" +
+                               $"Дедлайн: {task.Deadline:dd.MM.yyyy}\n" +
+                               $"ID: {task.Id}";
+
+                    var completeDto = new ToDoItemCallbackDto("completetask", task.Id);
+                    var deleteDto = new ToDoItemCallbackDto("deletetask", task.Id);
+
+                    var buttons = new List<List<InlineKeyboardButton>>
+                    {
+                        new List<InlineKeyboardButton>
+                        {
+                            InlineKeyboardButton.WithCallbackData("✅ Выполнить", completeDto.ToString()),
+                            InlineKeyboardButton.WithCallbackData("❌ Удалить", deleteDto.ToString())
+                        }
+                    };
+
+                    var keyboard = new InlineKeyboardMarkup(buttons);
+
+                    await _botClient.SendMessage(callback.Message.Chat.Id, info, replyMarkup: keyboard, cancellationToken: ct);
+                }
+                return;
+            }
+            else if (baseDto.Action == "completetask")
+            {
+                var dto = ToDoItemCallbackDto.FromString(callback.Data ?? "");
+                if (dto.ToDoItemId.HasValue)
+                {
+                    await _todoService.MarkCompleted(dto.ToDoItemId.Value, ct);
+                    await _botClient.SendMessage(callback.Message.Chat.Id, "Задача помечена как выполненная.", cancellationToken: ct);
+                }
+                return;
+            }
+            else if (baseDto.Action == "deletetask")
+            {
+                var dto = ToDoItemCallbackDto.FromString(callback.Data ?? "");
+                if (dto.ToDoItemId.HasValue)
+                {
+                    await _todoService.Delete(dto.ToDoItemId.Value, ct);
+                    await _botClient.SendMessage(callback.Message.Chat.Id, "Задача удалена.", cancellationToken: ct);
+                }
+                return;
             }
             else
             {
