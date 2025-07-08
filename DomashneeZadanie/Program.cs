@@ -15,7 +15,8 @@ namespace DomashneZadanie
 
         public static async Task Main(string[] args)
         {
-            string? token = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN", EnvironmentVariableTarget.User);//Telegram_TOKEN
+            string? token = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN", EnvironmentVariableTarget.User);
+
             if (string.IsNullOrEmpty(token))
             {
                 Console.WriteLine("Bot token not found. Please set the TELEGRAM_BOT_TOKEN environment variable.");
