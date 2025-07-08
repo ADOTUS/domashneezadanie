@@ -1,8 +1,10 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
-namespace Domashneezadanie.Helpers
+namespace DomashneeZadanie.Helpers
 {
     public static class EnumerableExtension
     {
@@ -11,9 +13,9 @@ namespace Domashneezadanie.Helpers
             if (source == null)
                 throw new ArgumentNullException(nameof(source));
             if (batchSize <= 0)
-                throw new ArgumentOutOfRangeException(nameof(batchSize), "Ðàçìåð ïà÷êè íå ìîæåò áûòü 0.");
+                throw new ArgumentOutOfRangeException(nameof(batchSize), "Ð Ð°Ð·Ð¼ÐµÑ€ Ð¿Ð°Ñ‡ÐºÐ¸ Ð½Ðµ Ð¼Ð¾Ð¶ÐµÑ‚ Ð±Ñ‹Ñ‚ÑŒ 0.");
             if (batchNumber < 0)
-                throw new ArgumentOutOfRangeException(nameof(batchNumber), "Íîìåð ïà÷êè íå ìîæåò áûòü îòðèöàòåëüíûìþ");
+                throw new ArgumentOutOfRangeException(nameof(batchNumber), "ÐÐ¾Ð¼ÐµÑ€ Ð¿Ð°Ñ‡ÐºÐ¸ Ð½Ðµ Ð¼Ð¾Ð¶ÐµÑ‚ Ð±Ñ‹Ñ‚ÑŒ Ð¾Ñ‚Ñ€Ð¸Ñ†Ð°Ñ‚ÐµÐ»ÑŒÐ½Ñ‹Ð¼.");
 
             return source.Skip(batchSize * batchNumber).Take(batchSize);
         }
