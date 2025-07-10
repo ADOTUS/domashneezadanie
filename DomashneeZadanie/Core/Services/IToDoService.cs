@@ -17,6 +17,7 @@ namespace DomashneeZadanie.Core.Services
         Task Delete(Guid id, CancellationToken cancellationToken);
         Task<IReadOnlyList<ToDoItem>> GetByUserIdAndList(Guid userId, Guid? listId, CancellationToken ct);
         Task<ToDoList?> GetListByName(ToDoUser user, string name, CancellationToken ct);
+        Task<ToDoItem?> Get(Guid toDoItemId, CancellationToken ct);
     }
  
 }

@@ -116,5 +116,10 @@ namespace DomashneeZadanie.Core.Services
         {
             return await _repository.Findd(user.UserId, new NamePrefixFind(namePrefix).IsMatch, cancellationToken);
         }
+
+        public async Task<ToDoItem?> Get(Guid toDoItemId, CancellationToken ct)
+        {
+            return await _repository.Get(toDoItemId, ct);
+        }
     }
 }
