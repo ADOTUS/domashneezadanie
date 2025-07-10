@@ -47,7 +47,8 @@ namespace DomashneZadanie
                 {
                     new AddTaskScenario(userService, todoService, toDoListService),
                     new AddListScenario(userService, toDoListService),
-                    new DeleteListScenario(userService, toDoListService, todoService)
+                    new DeleteListScenario(userService, toDoListService, todoService),
+                    new DeleteTaskScenario(todoService)
                 };
 
             IScenarioContextRepository contextRepository = new InMemoryScenarioContextRepository();
@@ -153,9 +154,7 @@ namespace DomashneZadanie
                  {
                      new() { Command = "start",     Description = "Регистрация пользователя" },
                      new() { Command = "addtask",   Description = "Добавить задачу (/addtask TaskName)" },
-                     new() { Command = "remove",    Description = "Удалить задачу (/remove TaskId)" },
-                     new() { Command = "complete",  Description = "Завершить задачу (/complete TaskId)" },
-                     new() { Command = "show",      Description = "Показать активные задачи" },
+                     new() { Command = "show",      Description = "Работа с списками, задачами" },
                      new() { Command = "report",    Description = "Статистика задач" },
                      new() { Command = "find",      Description = "Поиск задач (/find keyword)" },
                      new() { Command = "help",      Description = "Список команд" },

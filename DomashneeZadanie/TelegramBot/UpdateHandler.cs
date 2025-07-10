@@ -1,5 +1,4 @@
-﻿using Domashneezadanie.Helpers;
-using DomashneeZadanie.Core.DataAccess;
+﻿using DomashneeZadanie.Core.DataAccess;
 using DomashneeZadanie.Core.Dto;
 using DomashneeZadanie.Core.Entities;
 using DomashneeZadanie.Core.Scenarios;
@@ -189,9 +188,11 @@ namespace DomashneeZadanie.TelegramBot
                               "/start\n" +
                               "/addtask\n" +
                               "/cancel\n" +
-                              "/complete\n" +
-                              "/remove\n" +
                               "/show\n" +
+                              "/show -> add new list\n" +
+                              "/show -> remove list\n" +
+                              "/show -> mark completed\n" +
+                              "/show -> remove\n" +
                               "/report\n" +
                               "/find\n" +
                               "/info\n" +
@@ -334,18 +335,23 @@ namespace DomashneeZadanie.TelegramBot
                 return;
             }
 
-            await _botClient.AnswerCallbackQuery(callback.Id, cancellationToken: ct);
-             
             if (callback.Data == "yes" || callback.Data == "no")
             {
-                if (context == null || context.CurrentScenario != ScenarioType.DeleteList)
+                if (context == null)
                 {
-                    await _botClient.SendMessage(callback.Message.Chat.Id, "Нет активного сценария удаления.", cancellationToken: ct);
+                    await _botClient.SendMessage(callback.Message.Chat.Id, "Нет активного сценария.", cancellationToken: ct);
                     return;
                 }
 
-                var fakeUpdate = new Update { CallbackQuery = callback };
-                await ProcessScenario(context, fakeUpdate, ct);
+                if (context.CurrentScenario == ScenarioType.DeleteList ||
+                    context.CurrentScenario == ScenarioType.DeleteTask)
+                {
+                    var fakeUpdate = new Update { CallbackQuery = callback };
+                    await ProcessScenario(context, fakeUpdate, ct);
+                    return;
+                }
+
+                await _botClient.SendMessage(callback.Message.Chat.Id, "Нет активного подходящего сценария для обработки выбора.", cancellationToken: ct);
                 return;
             }
 
@@ -589,8 +595,28 @@ namespace DomashneeZadanie.TelegramBot
                 var dto = ToDoItemCallbackDto.FromString(callback.Data ?? "");
                 if (dto.ToDoItemId.HasValue)
                 {
-                    await _todoService.Delete(dto.ToDoItemId.Value, ct);
-                    await _botClient.SendMessage(callback.Message.Chat.Id, "Задача удалена.", cancellationToken: ct);
+                    var task = await _todoService.Get(dto.ToDoItemId.Value, ct);
+                    if (task == null )
+                    {
+                        await _botClient.SendMessage(callback.Message.Chat.Id, "Задача не найдена.", cancellationToken: ct);
+                        return;
+                    }
+
+                    context = new ScenarioContext(ScenarioType.DeleteTask)
+                    {
+                        UserId = userId,
+                        CurrentStep = "Approve",
+                        CurrentScenario = ScenarioType.DeleteTask,
+                        Data = new Dictionary<string, object>
+                        {
+                            ["TaskId"] = task.Id
+                        }
+                    };
+
+                    await _contextRepository.SetContext(userId, context, ct);
+
+                    var fakeUpdate = new Update { CallbackQuery = callback };
+                    await ProcessScenario(context, fakeUpdate, ct);
                 }
                 return;
             }
