@@ -4,7 +4,7 @@ namespace DomashneeZadanie.Core.Dto
 {
     public class PagedListCallbackDto : ToDoListCallbackDto
     {
-        public int Page { get; set; }
+        public int Page { get; }
 
         public PagedListCallbackDto(string action, Guid? toDoListId, int page = 0)
             : base(action, toDoListId)

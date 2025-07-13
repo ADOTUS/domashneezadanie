@@ -3,6 +3,7 @@ using DomashneeZadanie.Core.Dto;
 using DomashneeZadanie.Core.Entities;
 using DomashneeZadanie.Core.Scenarios;
 using DomashneeZadanie.Core.Services;
+using DomashneeZadanie.Helpers;
 using System;
 using System.Numerics;
 using System.Text;
@@ -346,8 +347,8 @@ namespace DomashneeZadanie.TelegramBot
                 if (context.CurrentScenario == ScenarioType.DeleteList ||
                     context.CurrentScenario == ScenarioType.DeleteTask)
                 {
-                    var fakeUpdate = new Update { CallbackQuery = callback };
-                    await ProcessScenario(context, fakeUpdate, ct);
+                    var update = new Update { CallbackQuery = callback };
+                    await ProcessScenario(context, update, ct);
                     return;
                 }
 
@@ -405,54 +406,47 @@ namespace DomashneeZadanie.TelegramBot
                 if (listDto.ToDoListId.HasValue)
                     allTasks = await _todoService.GetByUserIdAndList(userObj.UserId, listDto.ToDoListId, ct);
                 else
-                    allTasks = await _todoService.GetAllByUserId(userObj.UserId, ct);
-
+                {
+                    allTasks = (await _todoService.GetAllByUserId(userObj.UserId, ct))
+                        .Where(x => x.List == null)
+                        .ToList();
+                }
                 var activeTasks = allTasks.Where(t => t.State != ToDoItemState.Completed).ToList();
 
                 string text;
-                var buttons = new List<List<InlineKeyboardButton>>();
+                InlineKeyboardMarkup keyboard;
+
                 if (activeTasks.Count == 0)
                 {
                     text = "В списке нет задач.";
+                    var btns = new List<List<InlineKeyboardButton>>
+                            {
+                                new List<InlineKeyboardButton>
+                                {
+                                    InlineKeyboardButton.WithCallbackData("☑️Посмотреть выполненные", new PagedListCallbackDto("show_completed", listDto.ToDoListId, 0).ToString())
+                                }
+                            };
+                    keyboard = new InlineKeyboardMarkup(btns);
                 }
                 else
                 {
                     text = "Активные задачи:";
-                    int totalPages = (int)Math.Ceiling((double)activeTasks.Count / _pageSize);
-                    var pageItems = activeTasks.Skip(listDto.Page * _pageSize).Take(_pageSize).ToList();
-
-                    foreach (var task in pageItems)
-                    {
-                        var dto = new ToDoItemCallbackDto("showtask", task.Id);
-                        buttons.Add(new List<InlineKeyboardButton>
+                    var callbackData = activeTasks.Select(task =>
                         {
-                            InlineKeyboardButton.WithCallbackData($"⬜ {task.Name}", dto.ToString())
+                            var dto = new ToDoItemCallbackDto("showtask", task.Id);
+                            return new KeyValuePair<string, string>($"⬜ {task.Name}", dto.ToString());
+                        })
+                        .ToList();
+
+                    keyboard = BuildPagedButtons(callbackData, listDto);
+
+                    var kbList = keyboard.InlineKeyboard.ToList();
+                    kbList.Add(new List<InlineKeyboardButton>
+                        {
+                            InlineKeyboardButton.WithCallbackData("☑️Посмотреть выполненные",new PagedListCallbackDto("show_completed", listDto.ToDoListId, 0).ToString())
                         });
-                    }
-
-                    var navButtons = new List<InlineKeyboardButton>();
-                    if (listDto.Page > 0)
-                    {
-                        var prevDto = new PagedListCallbackDto("show", listDto.ToDoListId, listDto.Page - 1);
-                        navButtons.Add(InlineKeyboardButton.WithCallbackData("⬅️", prevDto.ToString()));
-                    }
-                    if (listDto.Page < totalPages - 1)
-                    {
-                        var nextDto = new PagedListCallbackDto("show", listDto.ToDoListId, listDto.Page + 1);
-                        navButtons.Add(InlineKeyboardButton.WithCallbackData("➡️", nextDto.ToString()));
-                    }
-                    if (navButtons.Count > 0)
-                        buttons.Add(navButtons);
+                    keyboard = new InlineKeyboardMarkup(kbList);
                 }
-
-                buttons.Add(new List<InlineKeyboardButton>
-                {
-                    InlineKeyboardButton.WithCallbackData(
-                        "☑️Посмотреть выполненные",
-                        new PagedListCallbackDto("show_completed", listDto.ToDoListId, 0).ToString())
-                });
-
-                var keyboard = new InlineKeyboardMarkup(buttons);
 
                 if (callback.Message != null)
                 {
@@ -479,47 +473,50 @@ namespace DomashneeZadanie.TelegramBot
                 if (listDto.ToDoListId.HasValue)
                     allTasks = await _todoService.GetByUserIdAndList(userObj.UserId, listDto.ToDoListId, ct);
                 else
-                    allTasks = await _todoService.GetAllByUserId(userObj.UserId, ct);
-
+                {
+                    allTasks = (await _todoService.GetAllByUserId(userObj.UserId, ct))
+                        .Where(x => x.List == null)
+                        .ToList();
+                }
                 var completedTasks = allTasks.Where(t => t.State == ToDoItemState.Completed).ToList();
 
                 string text;
-                var buttons = new List<List<InlineKeyboardButton>>();
+                InlineKeyboardMarkup keyboard;
+
                 if (completedTasks.Count == 0)
                 {
                     text = "Задач нет";
+                    keyboard = new InlineKeyboardMarkup(new[]
+                    {
+                        new[]
+                        {
+                            InlineKeyboardButton.WithCallbackData(
+                                "⬜ Посмотреть активные",
+                                new PagedListCallbackDto("show", listDto.ToDoListId, 0).ToString())
+                        }
+                    });
                 }
                 else
                 {
                     text = "Выполненные задачи:";
-                    int totalPages = (int)Math.Ceiling((double)completedTasks.Count / _pageSize);
-                    var pageItems = completedTasks.Skip(listDto.Page * _pageSize).Take(_pageSize).ToList();
 
-                    foreach (var task in pageItems)
-                    {
-                        var dto = new ToDoItemCallbackDto("showtask", task.Id);
-                        buttons.Add(new List<InlineKeyboardButton>
+                    var callbackData = completedTasks
+                        .Select(task =>
                         {
-                            InlineKeyboardButton.WithCallbackData($"✅ {task.Name}", dto.ToString())
+                            var dto = new ToDoItemCallbackDto("showtask", task.Id);
+                            return new KeyValuePair<string, string>($"✅ {task.Name}", dto.ToString());
+                        })
+                        .ToList();
+
+                    keyboard = BuildPagedButtons(callbackData, listDto);
+
+                    var kbList = keyboard.InlineKeyboard.ToList();
+                    kbList.Add(new List<InlineKeyboardButton>
+                        {
+                            InlineKeyboardButton.WithCallbackData("⬜ Посмотреть активные",new PagedListCallbackDto("show", listDto.ToDoListId, 0).ToString())
                         });
-                    }
-
-                    var navButtons = new List<InlineKeyboardButton>();
-                    if (listDto.Page > 0)
-                    {
-                        var prevDto = new PagedListCallbackDto("show_completed", listDto.ToDoListId, listDto.Page - 1);
-                        navButtons.Add(InlineKeyboardButton.WithCallbackData("⬅️", prevDto.ToString()));
-                    }
-                    if (listDto.Page < totalPages - 1)
-                    {
-                        var nextDto = new PagedListCallbackDto("show_completed", listDto.ToDoListId, listDto.Page + 1);
-                        navButtons.Add(InlineKeyboardButton.WithCallbackData("➡️", nextDto.ToString()));
-                    }
-                    if (navButtons.Count > 0)
-                        buttons.Add(navButtons);
+                    keyboard = new InlineKeyboardMarkup(kbList);
                 }
-
-                var keyboard = new InlineKeyboardMarkup(buttons);
 
                 if (callback.Message != null)
                 {
@@ -693,6 +690,41 @@ namespace DomashneeZadanie.TelegramBot
             new[] { new KeyboardButton("/cancel") }
         })
             { ResizeKeyboard = true };
+        }
+        private InlineKeyboardMarkup BuildPagedButtons(IReadOnlyList<KeyValuePair<string, string>> callbackData, PagedListCallbackDto listDto)
+        {
+            var totalPages = (int)Math.Ceiling((double)callbackData.Count / _pageSize);
+
+            var pageItems = callbackData.GetBatchByNumber(_pageSize, listDto.Page).ToList();
+
+            var buttons = new List<List<InlineKeyboardButton>>();
+
+            foreach (var item in pageItems)
+            {
+                buttons.Add(new List<InlineKeyboardButton>
+                    {
+                        InlineKeyboardButton.WithCallbackData(item.Key, item.Value)
+                    });
+            }
+
+            var navButtons = new List<InlineKeyboardButton>();
+
+            if (listDto.Page > 0)
+            {
+                var prevDto = new PagedListCallbackDto(listDto.Action, listDto.ToDoListId, listDto.Page - 1);
+                navButtons.Add(InlineKeyboardButton.WithCallbackData("⬅️", prevDto.ToString()));
+            }
+            if (listDto.Page < totalPages - 1)
+            {
+                var nextDto = new PagedListCallbackDto(listDto.Action, listDto.ToDoListId, listDto.Page + 1);
+                navButtons.Add(InlineKeyboardButton.WithCallbackData("➡️", nextDto.ToString()));
+            }
+
+            if (navButtons.Count > 0)
+            {
+                buttons.Add(navButtons);
+            }
+            return new InlineKeyboardMarkup(buttons);
         }
 
 
