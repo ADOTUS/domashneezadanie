@@ -33,7 +33,7 @@ namespace DomashneeZadanie.Core.Dto
 
         public override string ToString()
         {
-            string idPart = ToDoListId.HasValue ? ToDoListId.ToString() : "none";
+            string idPart = ToDoListId.HasValue ? ToDoListId.Value.ToString() : "none";
             return $"{Action}|{idPart}";
         }
     }
