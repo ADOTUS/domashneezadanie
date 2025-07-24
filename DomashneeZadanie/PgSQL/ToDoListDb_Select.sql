@@ -1,57 +1,25 @@
-Вариант1. Без кавычек.
 -- Получить все задачи пользователя
-SELECT * FROM ToDoItem
-WHERE UserId = '...';
+SELECT * FROM "todoitem" it
+JOIN "todouser" usr ON usr."userid" = it."userid";
 
 -- Получить активные задачи пользователя (State = 'Active')
-SELECT * FROM ToDoItem
-WHERE UserId = '...' AND State = 'Active';
-
--- Поиск задач по имени
-SELECT * FROM ToDoItem
-WHERE UserId = '...' AND Name ILIKE '%маска%';
-
--- Получить задачу по Id
-SELECT * FROM ToDoItem
-WHERE Id = '...';
-
--- Проверка существования задачи с именем
-SELECT EXISTS (
-    SELECT 1 FROM ToDoItem
-    WHERE UserId = '...' AND Name = '...'
-);
-
--- Подсчитать количество активных задач пользователя
-SELECT COUNT(*) FROM ToDoItem
-WHERE UserId = '...' AND State = 0;
-
-
-
-
-Вариант2. С кавычками. Постгри не выполняет так. Вероятно я не так понял задачу. Вот то, что не работает, но по тз:
-
--- Получить все задачи пользователя
-SELECT * FROM "ToDoItem"
-WHERE "UserId" = '...';
-
--- Получить активные задачи пользователя (State = 'Active')
-SELECT * FROM "ToDoItem"
-WHERE "UserId" = '...' AND "State" = 0;
+SELECT * FROM "todoitem" it
+JOIN "todouser" usr ON usr."userid" = it."userid" AND it."state" = 'Active';
 
 -- Поиск задач по имени 
-SELECT * FROM "ToDoItem"
-WHERE "UserId" = '...' AND "Name" ILIKE '%поиск%';
+SELECT * FROM "todoitem" it
+JOIN "todouser" usr ON usr."userid" = it."userid" AND "name" ILIKE '%б%';
 
 -- Получить задачу по Id
-SELECT * FROM "ToDoItem"
-WHERE "Id" = '...';
+SELECT * FROM "todoitem" it
+WHERE it."id" = '20000000-0000-0000-0000-000000000001';
 
 -- Проверка существования задачи с именем
 SELECT EXISTS (
-    SELECT 1 FROM "ToDoItem"
-    WHERE "UserId" = '...' AND "Name" = '...'
+    SELECT 1 FROM "todoitem" it
+    WHERE it."userid" = '00000000-0000-0000-0000-000000000001' AND it."name" = '1'
 );
 
 -- Подсчитать количество активных задач пользователя
-SELECT COUNT(*) FROM "ToDoItem"
-WHERE "UserId" = '...' AND "State" = 0;
+SELECT COUNT(*) FROM "todoitem"
+WHERE "userid" = '00000000-0000-0000-0000-000000000001' AND "state" = 'Active';
