@@ -13,12 +13,5 @@ namespace DomashneeZadanie.Core.Entities
         public ToDoUser User { get; set; }
         public DateTime CreatedAt { get; set; }
 
-        //public ToDoList(ToDoUser user, string name)
-        //{
-        //    Id = Guid.NewGuid();
-        //    Name = name;
-        //    User = user;
-        //    CreatedAt = DateTime.UtcNow;
-        //}
     }
 }
