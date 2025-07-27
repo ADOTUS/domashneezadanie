@@ -2,19 +2,45 @@
 using DomashneeZadanie.Core.Exceptions;
 using DomashneeZadanie.Core.Scenarios;
 using DomashneeZadanie.Core.Services;
+using DomashneeZadanie.Infrastructure.DataAccess;
+using DomashneeZadanie.Scenarios;
 using DomashneeZadanie.TelegramBot;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
-using DomashneeZadanie.Scenarios;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 namespace DomashneZadanie
 {
     internal static class Program
     {
-
         public static async Task Main(string[] args)
         {
+            int maxTasks = SetGlobalVar("Введите максимальное количество задач (1–10):", 1, 10, 0);
+            int maxNameLength = SetGlobalVar("Введите максимальную длину задачи (1–255):", 1, 255, 1);
+
+            var builder = Host.CreateApplicationBuilder(args);
+
+            var connectionString = builder.Configuration.GetConnectionString("ToDoList");
+            Console.WriteLine($"[DEBUG] Строка подключения: {connectionString}");
+            builder.Services.AddSingleton<IDataContextFactory<ToDoDataContext>>(new DataContextFactory(connectionString!));
+            builder.Services.AddScoped<IUserRepository, SqlUserRepository>();
+            builder.Services.AddScoped<IToDoRepository, SqlToDoRepository>();
+            builder.Services.AddScoped<IToDoListRepository, SqlToDoListRepository>();
+            builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IToDoService>(provider =>
+            {
+                var todoRepo = provider.GetRequiredService<IToDoRepository>();
+                var listRepo = provider.GetRequiredService<IToDoListRepository>();
+                return new ToDoService(todoRepo, listRepo, maxTasks, maxNameLength);
+            });
+            builder.Services.AddScoped<IToDoListService, ToDoListService>();
+            builder.Services.AddScoped<IToDoReportService, ToDoReportService>();
+
+            using var host = builder.Build();
+
             string? token = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN", EnvironmentVariableTarget.User);
 
             if (string.IsNullOrEmpty(token))
@@ -22,45 +48,40 @@ namespace DomashneZadanie
                 Console.WriteLine("Bot token not found. Please set the TELEGRAM_BOT_TOKEN environment variable.");
                 return;
             }
-            Console.WriteLine(token);
 
-
-            int maxTasks = SetGlobalVar("Введите максимальное количество задач (1–10):", 1, 10, 0);
-            int maxNameLength = SetGlobalVar("Введите максимальную длину задачи (1–255):", 1, 255, 1);
-
-            var userRepository = new FileUserRepository("UserData");
-            var userService = new UserService(userRepository);
-
-
-            string baseFolder = "ToDoData";
-            IToDoRepository todoRepository = new FileToDoRepository(baseFolder);
-
-            var reportService = new ToDoReportService(todoRepository);
-
-            IToDoListRepository listRepository = new FileToDoListRepository("ListData");
-            var todoService = new ToDoService(todoRepository, listRepository, maxTasks, maxNameLength);
-            IToDoListService toDoListService = new ToDoListService(listRepository);
+            var userService = host.Services.GetRequiredService<IUserService>();
+            var todoService = host.Services.GetRequiredService<IToDoService>();
+            var listService = host.Services.GetRequiredService<IToDoListService>();
+            var reportService = host.Services.GetRequiredService<IToDoReportService>();
 
             var botClient = new TelegramBotClient(token);
 
             var scenarios = new List<IScenario>
-                {
-                    new AddTaskScenario(userService, todoService, toDoListService),
-                    new AddListScenario(userService, toDoListService),
-                    new DeleteListScenario(userService, toDoListService, todoService),
-                    new DeleteTaskScenario(todoService)
-                };
+        {
+            new AddTaskScenario(userService, todoService, listService),
+            new AddListScenario(userService, listService),
+            new DeleteListScenario(userService, listService, todoService),
+            new DeleteTaskScenario(todoService)
+        };
 
             IScenarioContextRepository contextRepository = new InMemoryScenarioContextRepository();
 
-       
-            var handler = new UpdateHandler(botClient,userService, todoService, reportService, toDoListService, maxTasks, maxNameLength, scenarios, contextRepository);
+            var handler = new UpdateHandler(
+                botClient,
+                userService,
+                todoService,
+                reportService,
+                listService,
+                maxTasks,
+                maxNameLength,
+                scenarios,
+                contextRepository);
 
             using var cts = new CancellationTokenSource();
 
-            await SetBotCommands(botClient, cancellationToken: cts.Token); 
+            await SetBotCommands(botClient, cancellationToken: cts.Token);
 
-            handler.OnHandleUpdateStarted += HandleStarted; 
+            handler.OnHandleUpdateStarted += HandleStarted;
             handler.OnHandleUpdateCompleted += HandleCompleted;
 
             try
@@ -70,14 +91,13 @@ namespace DomashneZadanie
                     AllowedUpdates = new[] { UpdateType.Message, UpdateType.CallbackQuery },
                     DropPendingUpdates = true
                 };
-                botClient.StartReceiving(updateHandler: handler, receiverOptions: receiverOptions, cancellationToken: cts.Token);
+                botClient.StartReceiving(handler, receiverOptions, cancellationToken: cts.Token);
 
                 Console.WriteLine("Бот запущен. Нажмите клавишу 'A' для выхода, любую другую — для информации о боте.");
 
                 while (true)
                 {
-                    ConsoleKeyInfo key = Console.ReadKey(intercept: true);
-
+                    var key = Console.ReadKey(intercept: true);
                     if (key.Key == ConsoleKey.A)
                     {
                         Console.WriteLine("\nЗавершение работы...");
@@ -96,22 +116,15 @@ namespace DomashneZadanie
             }
             finally
             {
-                Console.WriteLine("Подписки на события удалены");
                 handler.OnHandleUpdateStarted -= HandleStarted;
                 handler.OnHandleUpdateCompleted -= HandleCompleted;
-
             }
 
-            void HandleStarted(string message)
-            {
+            void HandleStarted(string message) =>
                 Console.WriteLine($"Началась обработка сообщения '{message}'");
-            }
 
-            void HandleCompleted(string message)
-            {
+            void HandleCompleted(string message) =>
                 Console.WriteLine($"Закончилась обработка сообщения '{message}'");
-            }
-
         }
         private static int SetGlobalVar(string msg, int min, int max, int varType)
         {
