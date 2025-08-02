@@ -104,7 +104,7 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
             }
             return Task.FromResult(count);
         }
-        public Task <IReadOnlyList<ToDoItem>> Findd(Guid userId, Func<ToDoItem, bool> predicate, CancellationToken cancellationToken)
+        public Task <IReadOnlyList<ToDoItem>> Find(Guid userId, Func<ToDoItem, bool> predicate, CancellationToken cancellationToken)
         {
             List<ToDoItem> result = new List<ToDoItem>();
 

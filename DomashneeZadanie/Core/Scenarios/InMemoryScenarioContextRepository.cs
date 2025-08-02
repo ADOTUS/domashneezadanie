@@ -26,5 +26,11 @@ namespace DomashneeZadanie.Core.Scenarios
             _contexts.TryRemove(userId, out _);
             return Task.CompletedTask;
         }
+        public Task<IReadOnlyList<ScenarioContext>> GetContexts(CancellationToken ct)
+        {
+            var result = _contexts.Values.ToList();
+            return Task.FromResult<IReadOnlyList<ScenarioContext>>(result);
+        }
+
     }
 }

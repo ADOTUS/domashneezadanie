@@ -1,17 +1,18 @@
-﻿using DomashneeZadanie.Core.DataAccess;
+﻿using DomashneeZadanie.BackgroundTasks;
+using DomashneeZadanie.Core.DataAccess;
 using DomashneeZadanie.Core.Exceptions;
 using DomashneeZadanie.Core.Scenarios;
 using DomashneeZadanie.Core.Services;
 using DomashneeZadanie.Infrastructure.DataAccess;
 using DomashneeZadanie.Scenarios;
 using DomashneeZadanie.TelegramBot;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Configuration;
 namespace DomashneZadanie
 {
     internal static class Program
@@ -81,10 +82,20 @@ namespace DomashneZadanie
             using var host = builder.Build();
 
             var handler = host.Services.GetRequiredService<UpdateHandler>();
-
             var botClient = new TelegramBotClient(token);
-
             using var cts = new CancellationTokenSource();
+
+            var contextRepo = host.Services.GetRequiredService<IScenarioContextRepository>();
+            var runner = new BackgroundTaskRunner();
+            var resetTimeout = TimeSpan.FromMinutes(1);
+
+            runner.AddTask(new ResetScenarioBackgroundTask(
+                resetTimeout,
+                contextRepo,
+                botClient));
+
+            runner.StartTasks(cts.Token);
+
 
             await SetBotCommands(botClient, cancellationToken: cts.Token);
 
@@ -108,7 +119,8 @@ namespace DomashneZadanie
                     var key = Console.ReadKey(intercept: true);
                     if (key.Key == ConsoleKey.A)
                     {
-                        Console.WriteLine("\nЗавершение работы...");
+                        Console.WriteLine("\nЗавершение работы и фоновых задач");
+                        await runner.StopTasks(CancellationToken.None);
                         cts.Cancel();
                         break;
                     }
