@@ -25,6 +25,7 @@ namespace DomashneZadanie
 
             var connectionString = builder.Configuration.GetConnectionString("ToDoList");
             Console.WriteLine($"[DEBUG] Строка подключения: {connectionString}");
+
             builder.Services.AddSingleton<IDataContextFactory<ToDoDataContext>>(new DataContextFactory(connectionString!));
             builder.Services.AddScoped<IUserRepository, SqlUserRepository>();
             builder.Services.AddScoped<IToDoRepository, SqlToDoRepository>();
@@ -39,43 +40,49 @@ namespace DomashneZadanie
             builder.Services.AddScoped<IToDoListService, ToDoListService>();
             builder.Services.AddScoped<IToDoReportService, ToDoReportService>();
 
-            using var host = builder.Build();
+            builder.Services.AddSingleton<IScenarioContextRepository, InMemoryScenarioContextRepository>();
 
             string? token = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN", EnvironmentVariableTarget.User);
-
             if (string.IsNullOrEmpty(token))
             {
                 Console.WriteLine("Bot token not found. Please set the TELEGRAM_BOT_TOKEN environment variable.");
                 return;
             }
 
-            var userService = host.Services.GetRequiredService<IUserService>();
-            var todoService = host.Services.GetRequiredService<IToDoService>();
-            var listService = host.Services.GetRequiredService<IToDoListService>();
-            var reportService = host.Services.GetRequiredService<IToDoReportService>();
+            builder.Services.AddScoped<UpdateHandler>(provider =>
+            {
+                var botClient = new TelegramBotClient(token);
+                var userService = provider.GetRequiredService<IUserService>();
+                var todoService = provider.GetRequiredService<IToDoService>();
+                var reportService = provider.GetRequiredService<IToDoReportService>();
+                var listService = provider.GetRequiredService<IToDoListService>();
+                var contextRepository = provider.GetRequiredService<IScenarioContextRepository>();
+
+                var scenarios = new List<IScenario>
+                    {
+                        new AddTaskScenario(userService, todoService, listService),
+                        new AddListScenario(userService, listService),
+                        new DeleteListScenario(userService, listService, todoService),
+                        new DeleteTaskScenario(todoService)
+                    };
+
+                return new UpdateHandler(
+                    botClient,
+                    userService,
+                    todoService,
+                    reportService,
+                    listService,
+                    maxTasks,
+                    maxNameLength,
+                    scenarios,
+                    contextRepository);
+            });
+
+            using var host = builder.Build();
+
+            var handler = host.Services.GetRequiredService<UpdateHandler>();
 
             var botClient = new TelegramBotClient(token);
-
-            var scenarios = new List<IScenario>
-        {
-            new AddTaskScenario(userService, todoService, listService),
-            new AddListScenario(userService, listService),
-            new DeleteListScenario(userService, listService, todoService),
-            new DeleteTaskScenario(todoService)
-        };
-
-            IScenarioContextRepository contextRepository = new InMemoryScenarioContextRepository();
-
-            var handler = new UpdateHandler(
-                botClient,
-                userService,
-                todoService,
-                reportService,
-                listService,
-                maxTasks,
-                maxNameLength,
-                scenarios,
-                contextRepository);
 
             using var cts = new CancellationTokenSource();
 
@@ -91,6 +98,7 @@ namespace DomashneZadanie
                     AllowedUpdates = new[] { UpdateType.Message, UpdateType.CallbackQuery },
                     DropPendingUpdates = true
                 };
+
                 botClient.StartReceiving(handler, receiverOptions, cancellationToken: cts.Token);
 
                 Console.WriteLine("Бот запущен. Нажмите клавишу 'A' для выхода, любую другую — для информации о боте.");

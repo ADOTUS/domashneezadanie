@@ -92,7 +92,6 @@ namespace DomashneeZadanie.Core.Services
                 throw new DuplicateTaskException(name);
             }
 
-            //ToDoItem newItem = new ToDoItem(user, name, deadline, list);
             ToDoItem newItem = new ToDoItem
             {
                 Id = Guid.NewGuid(),
