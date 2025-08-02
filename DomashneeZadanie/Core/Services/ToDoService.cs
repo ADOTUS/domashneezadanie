@@ -124,7 +124,7 @@ namespace DomashneeZadanie.Core.Services
         }
         public async Task <IReadOnlyList<ToDoItem>> Find(ToDoUser user, string namePrefix, CancellationToken cancellationToken)
         {
-            return await _repository.Findd(user.UserId, new NamePrefixFind(namePrefix).IsMatch, cancellationToken);
+            return await _repository.Find(user.UserId, new NamePrefixFind(namePrefix).IsMatch, cancellationToken);
         }
 
         public async Task<ToDoItem?> Get(Guid toDoItemId, CancellationToken ct)

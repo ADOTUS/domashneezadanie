@@ -44,7 +44,7 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
             return items.Select(ModelMapper.MapFromModel).ToList();
         }
 
-        public async Task<IReadOnlyList<ToDoItem>> Findd(Guid userId, Func<ToDoItem, bool> predicate, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<ToDoItem>> Find(Guid userId, Func<ToDoItem, bool> predicate, CancellationToken cancellationToken)
         {
             var all = await GetAllByUserId(userId, cancellationToken);
             return all.Where(predicate).ToList();
