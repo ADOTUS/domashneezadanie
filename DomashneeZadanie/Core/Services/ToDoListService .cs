@@ -33,13 +33,13 @@ namespace DomashneeZadanie.Core.Services
             if (exists)
                 throw new InvalidOperationException($"Список с именем \"{name}\" уже существует.");
 
-            var list = new ToDoList(user, name);
-            //{
-            //    Id = Guid.NewGuid(),
-            //    Name = name,
-            //    User = user,
-            //    CreatedAt = DateTime.UtcNow
-            //};
+            var list = new ToDoList
+            {
+                Id = Guid.NewGuid(),
+                User = user,
+                Name = name,
+                CreatedAt = DateTime.UtcNow
+            };
 
             await _listRepository.Add(list, ct);
 

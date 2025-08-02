@@ -11,7 +11,7 @@ namespace DomashneeZadanie.Core.DataAccess
     {
         Task<IReadOnlyList<ToDoItem>> GetAllByUserId(Guid userId, CancellationToken cancellationToken);
         Task<IReadOnlyList<ToDoItem>> GetActiveByUserId(Guid userId, CancellationToken cancellationToken);
-        Task<IReadOnlyList<ToDoItem>> Findd(Guid userId, Func<ToDoItem, bool> predicate, CancellationToken cancellationToken);
+        Task<IReadOnlyList<ToDoItem>> Find(Guid userId, Func<ToDoItem, bool> predicate, CancellationToken cancellationToken);
         Task<ToDoItem?> Get(Guid id, CancellationToken cancellationToken);
         Task Add(ToDoItem item, CancellationToken cancellationToken);
         Task Update(ToDoItem item, CancellationToken cancellationToken);

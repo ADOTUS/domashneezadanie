@@ -92,7 +92,17 @@ namespace DomashneeZadanie.Core.Services
                 throw new DuplicateTaskException(name);
             }
 
-            ToDoItem newItem = new ToDoItem(user, name, deadline, list);
+            ToDoItem newItem = new ToDoItem
+            {
+                Id = Guid.NewGuid(),
+                User = user,
+                Name = name,
+                CreatedAt = DateTime.UtcNow,
+                State = ToDoItemState.Active,
+                StateChangedAt = null,
+                Deadline = deadline,
+                List = list
+            };
             await _repository.Add(newItem, cancellationToken);
             return newItem;
         }
@@ -114,7 +124,7 @@ namespace DomashneeZadanie.Core.Services
         }
         public async Task <IReadOnlyList<ToDoItem>> Find(ToDoUser user, string namePrefix, CancellationToken cancellationToken)
         {
-            return await _repository.Findd(user.UserId, new NamePrefixFind(namePrefix).IsMatch, cancellationToken);
+            return await _repository.Find(user.UserId, new NamePrefixFind(namePrefix).IsMatch, cancellationToken);
         }
 
         public async Task<ToDoItem?> Get(Guid toDoItemId, CancellationToken ct)
