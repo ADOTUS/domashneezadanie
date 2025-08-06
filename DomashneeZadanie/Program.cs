@@ -41,6 +41,8 @@ namespace DomashneZadanie
             builder.Services.AddScoped<IToDoListService, ToDoListService>();
             builder.Services.AddScoped<IToDoReportService, ToDoReportService>();
 
+            builder.Services.AddScoped<INotificationService, NotificationService>();
+
             builder.Services.AddSingleton<IScenarioContextRepository, InMemoryScenarioContextRepository>();
 
             string? token = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN", EnvironmentVariableTarget.User);
@@ -87,12 +89,17 @@ namespace DomashneZadanie
 
             var contextRepo = host.Services.GetRequiredService<IScenarioContextRepository>();
             var runner = new BackgroundTaskRunner();
+
             var resetTimeout = TimeSpan.FromMinutes(1);
+
+            var notificationService = host.Services.GetRequiredService<INotificationService>();
+            runner.AddTask(new NotificationBackgroundTask(notificationService, botClient));
 
             runner.AddTask(new ResetScenarioBackgroundTask(
                 resetTimeout,
                 contextRepo,
                 botClient));
+            runner.AddTask(new NotificationBackgroundTask(notificationService, botClient));
 
             runner.StartTasks(cts.Token);
 
