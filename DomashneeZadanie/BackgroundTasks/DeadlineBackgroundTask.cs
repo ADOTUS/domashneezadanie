@@ -1,10 +1,5 @@
 ﻿using DomashneeZadanie.Core.DataAccess;
 using DomashneeZadanie.Core.Services;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DomashneeZadanie.BackgroundTasks
 {
@@ -13,7 +8,6 @@ namespace DomashneeZadanie.BackgroundTasks
         private readonly INotificationService _notificationService;
         private readonly IUserRepository _userRepository;
         private readonly IToDoRepository _toDoRepository;
-
         public DeadlineBackgroundTask(
             INotificationService notificationService,
             IUserRepository userRepository,
@@ -28,13 +22,12 @@ namespace DomashneeZadanie.BackgroundTasks
         protected override async Task Execute(CancellationToken ct)
         {
             var users = await _userRepository.GetUsers(ct);
+            var today = DateTime.UtcNow.Date;
 
             foreach (var user in users)
             {
-                var yesterday = DateTime.UtcNow.AddDays(-1).Date;
-                var today = DateTime.UtcNow.Date;
 
-                var overdueTasks = await _toDoRepository.GetActiveWithDeadline(user.UserId, yesterday, today, ct);
+                var overdueTasks = await _toDoRepository.GetActiveWithDeadline(user.UserId, today.AddDays(-1), today, ct);
 
                 foreach (var task in overdueTasks)
                 {

@@ -25,7 +25,7 @@ namespace DomashneZadanie
             var builder = Host.CreateApplicationBuilder(args);
 
             var connectionString = builder.Configuration.GetConnectionString("ToDoList");
-            Console.WriteLine($"[DEBUG] Строка подключения: {connectionString}");
+            Console.WriteLine($"DEBUG Строка подключения: {connectionString}");
 
             builder.Services.AddSingleton<IDataContextFactory<ToDoDataContext>>(new DataContextFactory(connectionString!));
             builder.Services.AddScoped<IUserRepository, SqlUserRepository>();
@@ -96,8 +96,6 @@ namespace DomashneZadanie
 
             var resetTimeout = TimeSpan.FromMinutes(1);
 
-            runner.AddTask(new NotificationBackgroundTask(notificationService, botClient));
-
             runner.AddTask(new ResetScenarioBackgroundTask(
                 resetTimeout,
                 contextRepo,
@@ -105,6 +103,7 @@ namespace DomashneZadanie
             runner.AddTask(new NotificationBackgroundTask(notificationService, botClient));
 
             runner.AddTask(new DeadlineBackgroundTask(notificationService, userRepo, todoRepo));
+            runner.AddTask(new TodayBackgroundTask(notificationService, userRepo, todoRepo));
 
             runner.StartTasks(cts.Token);
 
