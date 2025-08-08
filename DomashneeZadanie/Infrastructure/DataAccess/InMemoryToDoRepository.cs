@@ -120,6 +120,16 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
             }
             return Task.FromResult<IReadOnlyList<ToDoItem>>(result);
         }
+        public Task<IReadOnlyList<ToDoItem>> GetActiveWithDeadline(Guid userId, DateTime from, DateTime to, CancellationToken ct)
+        {
+            var result = _items
+                .Where(i => i.User.UserId == userId)
+                .Where(i => i.State == ToDoItemState.Active)
+                .Where(i => i.Deadline >= from && i.Deadline < to)
+                .ToList();
+
+            return Task.FromResult<IReadOnlyList<ToDoItem>>(result);
+        }
     }
 
 }

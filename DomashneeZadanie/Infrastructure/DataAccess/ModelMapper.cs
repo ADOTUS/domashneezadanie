@@ -1,10 +1,12 @@
 ﻿using DomashneeZadanie.Core.DataAccess;
 using DomashneeZadanie.Core.Entities;
+using DomashneeZadanie.Infrastructure.DataAccess.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Telegram.Bot.Types;
 
 namespace DomashneeZadanie.Infrastructure.DataAccess
 {
@@ -81,6 +83,32 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
                 Name = entity.Name,
                 CreatedAt = entity.CreatedAt,
                 UserId = entity.User.UserId
+            };
+        }
+        public static Notification MapFromModel(NotificationModel model)
+        {
+            return new Notification
+            {
+                Id = model.Id,
+                User = new ToDoUser { UserId = model.UserId },
+                Type = model.Type,
+                Text = model.Text,
+                ScheduledAt = model.ScheduledAt,
+                IsNotified = model.IsNotified,
+                NotifiedAt = model.NotifiedAt
+            };
+        }
+        public static NotificationModel MapToModel(Notification entity)
+        {
+            return new NotificationModel
+            {
+                Id = entity.Id,
+                UserId = entity.User.UserId,
+                Type = entity.Type,
+                Text = entity.Text,
+                ScheduledAt = entity.ScheduledAt,
+                IsNotified = entity.IsNotified,
+                NotifiedAt = entity.NotifiedAt
             };
         }
     }

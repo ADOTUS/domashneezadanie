@@ -247,5 +247,21 @@ namespace DomashneeZadanie.Core.Services
 
             return count;
         }
+        public async Task<IReadOnlyList<ToDoItem>> GetActiveWithDeadline(Guid userId, DateTime from, DateTime to, CancellationToken ct)
+        {
+            var allTasks = await GetActiveByUserId(userId, ct);
+
+            var result = new List<ToDoItem>();
+
+            foreach (var task in allTasks)
+            {
+                if (task.Deadline >= from && task.Deadline < to)
+                {
+                    result.Add(task);
+                }
+            }
+
+            return result;
+        }
     }
 }

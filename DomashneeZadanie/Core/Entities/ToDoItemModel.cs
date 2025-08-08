@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using LinqToDB.Mapping;
+﻿using LinqToDB.Mapping;
 using ColumnAttribute = LinqToDB.Mapping.ColumnAttribute;
 using AssociationAttribute = LinqToDB.Mapping.AssociationAttribute;
 

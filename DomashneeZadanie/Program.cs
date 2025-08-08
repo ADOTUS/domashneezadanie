@@ -25,7 +25,7 @@ namespace DomashneZadanie
             var builder = Host.CreateApplicationBuilder(args);
 
             var connectionString = builder.Configuration.GetConnectionString("ToDoList");
-            Console.WriteLine($"[DEBUG] Строка подключения: {connectionString}");
+            Console.WriteLine($"DEBUG Строка подключения: {connectionString}");
 
             builder.Services.AddSingleton<IDataContextFactory<ToDoDataContext>>(new DataContextFactory(connectionString!));
             builder.Services.AddScoped<IUserRepository, SqlUserRepository>();
@@ -40,6 +40,8 @@ namespace DomashneZadanie
             });
             builder.Services.AddScoped<IToDoListService, ToDoListService>();
             builder.Services.AddScoped<IToDoReportService, ToDoReportService>();
+
+            builder.Services.AddScoped<INotificationService, NotificationService>();
 
             builder.Services.AddSingleton<IScenarioContextRepository, InMemoryScenarioContextRepository>();
 
@@ -86,13 +88,22 @@ namespace DomashneZadanie
             using var cts = new CancellationTokenSource();
 
             var contextRepo = host.Services.GetRequiredService<IScenarioContextRepository>();
+            var notificationService = host.Services.GetRequiredService<INotificationService>();
+            var todoRepo = host.Services.GetRequiredService<IToDoRepository>();
+            var userRepo = host.Services.GetRequiredService<IUserRepository>();
+
             var runner = new BackgroundTaskRunner();
+
             var resetTimeout = TimeSpan.FromMinutes(1);
 
             runner.AddTask(new ResetScenarioBackgroundTask(
                 resetTimeout,
                 contextRepo,
                 botClient));
+            runner.AddTask(new NotificationBackgroundTask(notificationService, botClient));
+
+            runner.AddTask(new DeadlineBackgroundTask(notificationService, userRepo, todoRepo));
+            runner.AddTask(new TodayBackgroundTask(notificationService, userRepo, todoRepo));
 
             runner.StartTasks(cts.Token);
 

@@ -12,5 +12,6 @@ namespace DomashneeZadanie.Core.DataAccess
         Task<ToDoUser?> GetUser(Guid userId, CancellationToken cancellationToken);
         Task<ToDoUser?> GetUserByTelegramUserId(long telegramUserId, CancellationToken cancellationToken);
         Task Add(ToDoUser user, CancellationToken cancellationToken);
+        Task<IReadOnlyList<ToDoUser>> GetUsers(CancellationToken cancellationToken);
     }
 }
