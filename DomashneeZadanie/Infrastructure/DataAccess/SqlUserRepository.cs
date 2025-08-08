@@ -41,5 +41,13 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
             using var db = _factory.CreateDataContext();
             await db.InsertAsync(ModelMapper.MapToModel(user), token: cancellationToken);
         }
+        public async Task<IReadOnlyList<ToDoUser>> GetUsers(CancellationToken cancellationToken)
+        {
+            using var db = _factory.CreateDataContext();
+
+            var users = await db.ToDoUsers.ToListAsync(cancellationToken);
+
+            return users.Select(ModelMapper.MapFromModel).ToList();
+        }
     }
 }

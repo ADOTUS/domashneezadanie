@@ -1,7 +1,7 @@
 ﻿using DomashneeZadanie.Core.Entities;
 using DomashneeZadanie.Core.Services;
 using DomashneeZadanie.Infrastructure.DataAccess.Models;
-using LinqToDB;
+using LinqToDB; 
 
 namespace DomashneeZadanie.Infrastructure.DataAccess
 {
@@ -40,12 +40,21 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
         public async Task<IReadOnlyList<Notification>> GetScheduledNotification(DateTime scheduledBefore, CancellationToken ct)
         {
             using var db = _factory.CreateDataContext();
-
             var items = await db.Notifications
-                .Where(n => !n.IsNotified && n.ScheduledAt <= scheduledBefore)
+                .Join(db.ToDoUsers,
+                    n => n.UserId,
+                    u => u.UserId,
+                    (n, u) => new { Notification = n, User = u })
+                .Where(x => !x.Notification.IsNotified && x.Notification.ScheduledAt <= scheduledBefore)
                 .ToListAsync(ct);
 
-            return items.Select(ModelMapper.MapFromModel).ToList();
+            return items.Select(x =>
+            {
+                var entity = ModelMapper.MapFromModel(x.Notification);
+                entity.User.TelegramUserId = x.User.TelegramUserId;
+                entity.User.TelegramUserName = x.User.TelegramUserName;
+                return entity;
+            }).ToList();
         }
 
         public async Task MarkNotified(Guid notificationId, CancellationToken ct)

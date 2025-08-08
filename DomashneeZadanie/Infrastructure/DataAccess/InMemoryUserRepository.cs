@@ -46,5 +46,9 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
             await Task.Yield();
             _users.Add(user);
         }
+        public Task<IReadOnlyList<ToDoUser>> GetUsers(CancellationToken ct)
+        {
+            return Task.FromResult<IReadOnlyList<ToDoUser>>(_users.ToList());
+        }
     }
 }

@@ -29,6 +29,7 @@ namespace DomashneeZadanie.BackgroundTasks
 
             foreach (var notification in notifications)
             {
+                Console.WriteLine($"degug:{notification.User.TelegramUserId}");
                 await _bot.SendMessage(
                     chatId: notification.User.TelegramUserId,
                     text: notification.Text,

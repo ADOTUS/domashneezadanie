@@ -88,11 +88,14 @@ namespace DomashneZadanie
             using var cts = new CancellationTokenSource();
 
             var contextRepo = host.Services.GetRequiredService<IScenarioContextRepository>();
+            var notificationService = host.Services.GetRequiredService<INotificationService>();
+            var todoRepo = host.Services.GetRequiredService<IToDoRepository>();
+            var userRepo = host.Services.GetRequiredService<IUserRepository>();
+
             var runner = new BackgroundTaskRunner();
 
             var resetTimeout = TimeSpan.FromMinutes(1);
 
-            var notificationService = host.Services.GetRequiredService<INotificationService>();
             runner.AddTask(new NotificationBackgroundTask(notificationService, botClient));
 
             runner.AddTask(new ResetScenarioBackgroundTask(
@@ -100,6 +103,8 @@ namespace DomashneZadanie
                 contextRepo,
                 botClient));
             runner.AddTask(new NotificationBackgroundTask(notificationService, botClient));
+
+            runner.AddTask(new DeadlineBackgroundTask(notificationService, userRepo, todoRepo));
 
             runner.StartTasks(cts.Token);
 

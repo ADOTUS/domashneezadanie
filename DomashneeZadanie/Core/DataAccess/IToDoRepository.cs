@@ -18,5 +18,6 @@ namespace DomashneeZadanie.Core.DataAccess
         Task Delete(Guid id, CancellationToken cancellationToken);
         Task <bool> ExistsByName(Guid userId, string name, CancellationToken cancellationToken);
         Task <int> CountActive(Guid userId, CancellationToken cancellationToken);
+        Task<IReadOnlyList<ToDoItem>> GetActiveWithDeadline(Guid userId, DateTime from, DateTime to, CancellationToken cancellationToken);
     }
 }
