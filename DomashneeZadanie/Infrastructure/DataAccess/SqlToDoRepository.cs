@@ -95,5 +95,18 @@ namespace DomashneeZadanie.Infrastructure.DataAccess
             return await db.ToDoItems
                 .CountAsync(i => i.UserId == userId && i.State == 0, cancellationToken);
         }
+        public async Task<IReadOnlyList<ToDoItem>> GetActiveWithDeadline(Guid userId, DateTime from, DateTime to, CancellationToken ct)
+        {
+            using var db = _factory.CreateDataContext();
+
+            var items = await db.ToDoItems
+                .LoadWith(i => i.User)
+                .LoadWith(i => i.List)
+                .LoadWith(i => i.List!.User)
+                .Where(i => i.UserId == userId && i.State == (int)ToDoItemState.Active && i.Deadline >= from && i.Deadline < to)
+                .ToListAsync(ct);
+
+            return items.Select(ModelMapper.MapFromModel).ToList();
+        }
     }
 }

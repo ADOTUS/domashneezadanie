@@ -90,5 +90,9 @@ namespace DomashneeZadanie.Core.Services
 
             await File.WriteAllTextAsync(path, json, cancellationToken);
         }
+        public Task<IReadOnlyList<ToDoUser>> GetUsers(CancellationToken ct)
+        {
+            return Task.FromResult<IReadOnlyList<ToDoUser>>(new List<ToDoUser>());
+        }
     }
 }
