@@ -27,7 +27,7 @@ namespace DomashneeZadanie.BackgroundTasks
             foreach (var user in users)
             {
 
-                var overdueTasks = await _toDoRepository.GetActiveWithDeadline(user.UserId, today.AddDays(-1), today, ct);
+                var overdueTasks = await _toDoRepository.GetActiveWithDeadline(user.UserId, today.AddDays(-1).Date, today, ct);
 
                 foreach (var task in overdueTasks)
                 {
